@@ -1,33 +1,111 @@
 import json
+import ollama
 from pathlib import Path
 from datetime import datetime
-
-
-# ============================================================
-# CONFIGURATION
-# ============================================================
+import re
+import unicodedata
 
 BASE_DIR = Path(__file__).resolve().parent
 
-QUESTIONS_FILE = BASE_DIR / "interview_questions.json"
+OLLAMA_MODEL = "qwen3:8b"
+MAX_QUESTIONS = 10
+
+def flatten_text(text: str) -> str:
+    """
+    Strips diacritics, converts Vietnamese đ/Đ, handles non-breaking spaces,
+    and removes ALL non-alphanumeric characters for clean string comparison.
+    """
+    # Replace non-breaking spaces and Vietnamese Đ/đ
+    text = text.replace("\u00a0", " ").replace("Đ", "D").replace("đ", "d")
+    
+    # Strip diacritics
+    normalized = unicodedata.normalize("NFD", text)
+    stripped = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    
+    # Keep only pure lowercase letters and numbers
+    return re.sub(r"[^a-z0-9]", "", stripped.casefold())
+
+
+def find_question_file(candidate_name, language):
+    """
+    Find the candidate's question JSON file inside their folder regardless of 
+    casing, diacritics, or search depth.
+    """
+    target_candidate = flatten_text(candidate_name)
+    target_language = flatten_text(language)
+
+    # Roots to search (current dir and parent directories)
+    search_roots = [BASE_DIR, BASE_DIR.parent, BASE_DIR.parent.parent]
+
+    matching_dirs = []
+    for root in search_roots:
+        if root.exists():
+            for d in root.rglob("*"):
+                if d.is_dir():
+                    folder_flat = flatten_text(d.name)
+                    # Match folder name against candidate name
+                    if folder_flat and (folder_flat == target_candidate or target_candidate in folder_flat):
+                        matching_dirs.append(d)
+
+    # Deduplicate matching folders
+    matching_dirs = list(set(matching_dirs))
+
+    if not matching_dirs:
+        return None
+
+    # Search for question file inside matched applicant folder(s)
+    for folder in matching_dirs:
+        for file in folder.rglob("*.json"):
+            file_flat = flatten_text(file.name)
+            # Check if file contains both the candidate name and interview language
+            if target_candidate in file_flat and target_language in file_flat and "questions" in file_flat:
+                return file
+
+    return None
+
+
+def get_question_file():
+    print("=== AI Interview Chatbot ===\n")
+
+    candidate_name = input("Candidate name: ").strip()
+    language = input("Interview language: ").strip()
+
+    question_file = find_question_file(candidate_name, language)
+
+    if question_file is None:
+        expected_filename = f"{candidate_name}_questions_{language}.json"
+
+        print("\nERROR: Question file not found.")
+        print(f"Expected file: {expected_filename}")
+        print(f"Directory searched: {BASE_DIR}")
+
+        return None, candidate_name, language
+
+    print(f"\nQuestion file found: {question_file.name}")
+
+    return question_file, candidate_name, language
 
 
 # ============================================================
 # LOAD QUESTIONS
 # ============================================================
 
-def load_questions():
+def load_questions(question_file):
+    """Load interview questions from the selected JSON file."""
+    try:
+        with open(question_file, "r", encoding="utf-8") as f:
+            return json.load(f)
 
-    if not QUESTIONS_FILE.exists():
+    except FileNotFoundError:
         raise FileNotFoundError(
-            f"\nCould not find:\n{QUESTIONS_FILE}"
+            f"Question file not found: {question_file}"
         )
 
-    print(f"\nLoading questions from:")
-    print(QUESTIONS_FILE)
-
-    with open(QUESTIONS_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid JSON in question file: {question_file}\n"
+            f"Error: {e}"
+        )
 
 
 # ============================================================
@@ -40,7 +118,7 @@ def extract_questions(data):
 
     all_questions = []
 
-    # Your JSON uses a list of questions
+    # Current JSON format: list
     if isinstance(questions, list):
 
         for index, question in enumerate(questions, start=1):
@@ -53,7 +131,7 @@ def extract_questions(data):
                 "topic": question.get("topic")
             })
 
-    # Also support the older dictionary format
+    # Older JSON format: dictionary
     elif isinstance(questions, dict):
 
         for category, category_questions in questions.items():
@@ -75,98 +153,186 @@ def extract_questions(data):
 
     return all_questions
 
+
+# ============================================================
+# OLLAMA FOLLOW-UP QUESTION GENERATOR
+# ============================================================
+
+def generate_follow_up(
+    candidate_name,
+    language,
+    current_question,
+    answer,
+    previous_answers
+):
+    history = "\n".join(
+        f"Q: {item['question']}\nA: {item['answer']}"
+        for item in previous_answers
+    )
+
+    prompt = f"""
+You are conducting a professional technical interview.
+
+Candidate: {candidate_name}
+Interview language: {language}
+
+Previous interview history:
+{history}
+
+Current question:
+{current_question}
+
+Candidate's answer:
+{answer}
+
+Based on the candidate's answer, decide whether a follow-up
+question would meaningfully improve the interview.
+
+If a follow-up is useful:
+- Ask exactly ONE follow-up question.
+- Make it directly related to the candidate's answer.
+- Do not repeat the original question.
+- Keep it concise.
+- Write the question entirely in {language}.
+
+If no follow-up is useful, respond with exactly:
+
+NO_FOLLOW_UP
+
+Otherwise, respond with ONLY the follow-up question.
+"""
+
+    response = ollama.chat(
+        model=OLLAMA_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a professional technical interviewer. "
+                    "Ask concise, relevant and natural questions."
+                )
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        think=False
+    )
+
+    result = response["message"]["content"].strip()
+
+    if "<think>" in result:
+        result = result.split("</think>")[-1].strip()
+
+    if result == "NO_FOLLOW_UP":
+        return None
+
+    return result
+
+
+# ============================================================
+# ANSWER CONFIRMATION
+# ============================================================
+
+def get_confirmed_answer():
+
+    while True:
+
+        answer = input("Your answer: ")
+
+        if answer.strip().lower() == "quit":
+            return None
+
+        print()
+        print(f"Your answer: {answer}")
+        print()
+
+        confirmation = input(
+            "Are you sure this is your answer? (yes/no): "
+        ).strip().lower()
+
+        if confirmation in ["yes", "y"]:
+
+            return answer
+
+        elif confirmation in ["no", "n"]:
+
+            print("\nOkay, please enter your answer again.\n")
+
+        else:
+
+            print(
+                "\nPlease enter 'yes' or 'no'.\n"
+            )
+
+
 # ============================================================
 # RUN INTERVIEW
 # ============================================================
 
-def run_interview(candidate_name, questions):
-
+def run_interview(candidate_name, language, questions):
     answers = []
 
-    # Limit interview to 10 questions, feel free to adjust this number as needed
-    questions = questions[:10]
+    base_question_index = 0
+    total_question_count = 0
 
-    print("\n")
-    print("=" * 70)
-    print("                 AI INTERVIEW")
-    print("=" * 70)
+    while (
+        total_question_count < MAX_QUESTIONS
+        and base_question_index < len(questions)
+    ):
+        question_data = questions[base_question_index]
 
-    print(f"\nCandidate: {candidate_name}")
-    print(f"Total questions: {len(questions)}")
+        question = question_data["question"]
 
-    print("\nThe interview will begin now.")
-    print("Type your answer and press ENTER.")
-    print("You will be asked to confirm each answer.")
-    print("Type 'quit' at any time to stop the interview.")
+        print(f"\nQuestion {total_question_count + 1}:")
+        print(question)
 
-    input("\nPress ENTER to begin...")
-
-    for index, question_data in enumerate(questions, start=1):
-
-        print("\n")
-        print("-" * 70)
-
-        print(f"Question {index}/{len(questions)}")
-        print(f"Category: {question_data['category']}")
-
-        if question_data["difficulty"]:
-            print(f"Difficulty: {question_data['difficulty']}")
-
-        if question_data["topic"]:
-            print(f"Topic: {question_data['topic']}")
-
-        print()
-        print(question_data["question"])
-        print()
-
-        # ----------------------------------------------------
-        # GET AND CONFIRM ANSWER
-        # ----------------------------------------------------
-
-        while True:
-
-            answer = input("Your answer: ")
-
-            # Allow the candidate to quit
-            if answer.strip().lower() == "quit":
-
-                print("\nInterview stopped.")
-                return answers
-
-            print()
-            print(f"Your answer: {answer}")
-            print()
-
-            confirmation = input(
-                "Are you sure this is your answer? (yes/no): "
-            ).strip().lower()
-
-            if confirmation in ["yes", "y"]:
-
-                break
-
-            elif confirmation in ["no", "n"]:
-
-                print("\nOkay, please enter your answer again.\n")
-
-            else:
-
-                print(
-                    "\nPlease enter 'yes' or 'no'.\n"
-                )
-
-        # ----------------------------------------------------
-        # SAVE ANSWER
-        # ----------------------------------------------------
+        answer = get_confirmed_answer()
 
         answers.append({
-            "question_number": index,
-            "category": question_data["category"],
-            "topic": question_data["topic"],
-            "difficulty": question_data["difficulty"],
-            "question": question_data["question"],
+            "question_number": total_question_count + 1,
+            "type": "predefined",
+            "category": question_data.get("category"),
+            "difficulty": question_data.get("difficulty"),
+            "topic": question_data.get("topic"),
+            "question": question,
             "answer": answer
         })
+
+        total_question_count += 1
+        base_question_index += 1
+
+        # Don't generate a follow-up if we've reached the limit
+        if total_question_count >= MAX_QUESTIONS:
+            break
+
+        # Ask Ollama whether a follow-up is appropriate
+        follow_up = generate_follow_up(
+            candidate_name=candidate_name,
+            language=language,
+            current_question=question,
+            answer=answer,
+            previous_answers=answers[:-1]
+        )
+
+        if follow_up:
+            print("\nFollow-up question:")
+            print(follow_up)
+
+            follow_up_answer = get_confirmed_answer()
+
+            answers.append({
+                "question_number": total_question_count + 1,
+                "type": "follow_up",
+                "category": question_data.get("category"),
+                "difficulty": question_data.get("difficulty"),
+                "topic": question_data.get("topic"),
+                "question": follow_up,
+                "answer": follow_up_answer
+            })
+
+            total_question_count += 1
 
     return answers
 
@@ -174,39 +340,32 @@ def run_interview(candidate_name, questions):
 # ============================================================
 # SAVE ANSWERS
 # ============================================================
-def get_next_output_file():
-    """
-    Find the next available interview_answers_XXX.json filename.
-    """
 
-    number = 1
+def get_output_file(candidate_name):
 
-    while True:
+    normalized_name = normalize_text(candidate_name)
 
-        filename = f"interview_answers_{number:03d}.json"
-        output_path = BASE_DIR / filename
+    filename = f"{normalized_name}_answers.json"
 
-        if not output_path.exists():
-            return output_path
-
-        number += 1
+    return BASE_DIR / filename
 
 
-def save_answers(candidate_name, answers):
+def save_answers(candidate_name, answers, questions_file, interview_language):
 
     output = {
         "candidate": candidate_name,
-        "source_questions": QUESTIONS_FILE.name,
+        "source_questions": questions_file.name,
+        "interview_language": interview_language,
         "interview_date": datetime.now().isoformat(),
         "total_answered": len(answers),
         "answers": answers
     }
 
-    # Find a unique filename
-    output_path = get_next_output_file()
+    # Save output into the same folder as questions_file
+    output_filename = f"{flatten_text(candidate_name)}_answers.json"
+    output_path = questions_file.parent / output_filename
 
     with open(output_path, "w", encoding="utf-8") as file:
-
         json.dump(
             output,
             file,
@@ -219,51 +378,40 @@ def save_answers(candidate_name, answers):
 
     return output_path
 
+
 # ============================================================
 # MAIN
 # ============================================================
 
 def main():
+    question_file, candidate_name, language = get_question_file()
 
-    print("=" * 70)
-    print("              AI INTERVIEW CHATBOT")
-    print("=" * 70)
-
-    # Automatically load interview_questions.json
-    data = load_questions()
-
-    candidate_name = data.get(
-        "candidate",
-        "Unknown Candidate"
-    )
-
-    questions = extract_questions(data)
-
-    if not questions:
-
-        print("\nNo questions were found in interview_questions.json.")
+    if question_file is None:
         return
 
-    # Run interview
+    print(f"\nLoading questions for {candidate_name}...")
+
+    questions_data = load_questions(question_file)
+    questions = extract_questions(questions_data)
+
+    if not questions:
+        print("ERROR: No questions found in the JSON file.")
+        return
+
+    print(f"Loaded {len(questions)} questions.")
+    print(f"Interview language: {language}")
+
     answers = run_interview(
         candidate_name,
+        language,
         questions
     )
 
-    # Save answers
     save_answers(
         candidate_name,
-        answers
-    )
-
-    print("\n")
-    print("=" * 70)
-    print("                 INTERVIEW COMPLETE")
-    print("=" * 70)
-
-    print(
-        f"\nQuestions answered: "
-        f"{len(answers)}"
+        answers,
+        question_file,
+        language
     )
 
 

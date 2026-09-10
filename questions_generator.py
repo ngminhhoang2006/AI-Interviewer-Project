@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 import ollama
+import re
+import unicodedata
 
 
 # ============================================================
@@ -15,47 +17,82 @@ BASE_DIR = Path(__file__).resolve().parent
 # FIND JSON FILE
 # ============================================================
 
-def find_json_file(filename):
+def flatten_text(text: str) -> str:
     """
-    Search recursively for the requested JSON file
-    starting from the directory containing this script.
+    Strips diacritics, converts Vietnamese đ/Đ, handles non-breaking spaces,
+    and removes ALL non-alphanumeric characters for clean string comparison.
     """
+    # Replace non-breaking spaces and Vietnamese Đ/đ
+    text = text.replace("\u00a0", " ").replace("Đ", "D").replace("đ", "d")
+    
+    # Strip diacritics
+    normalized = unicodedata.normalize("NFD", text)
+    stripped = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+    
+    # Keep only pure lowercase letters and numbers (removes spaces, hyphens, punctuation)
+    return re.sub(r'[^a-z0-9]', '', stripped.casefold())
 
-    # Remove accidental quotes/spaces
-    filename = filename.strip().strip('"').strip("'")
 
-    # Add .json if the user didn't type it
-    if not filename.lower().endswith(".json"):
-        filename += ".json"
+def find_json_file(applicant_name: str):
+    """
+    Find the applicant's JSON file by comparing flattened folder names.
+    """
+    applicant_name = applicant_name.strip().strip('"').strip("'")
+    target_flat = flatten_text(applicant_name)
 
-    # Search recursively
-    matches = list(BASE_DIR.rglob(filename))
+    # Search from script dir up to parent roots
+    search_roots = [BASE_DIR, BASE_DIR.parent, BASE_DIR.parent.parent]
 
-    if not matches:
+    matching_dirs = []
+    for root in search_roots:
+        if root.exists():
+            for d in root.rglob("*"):
+                if d.is_dir():
+                    folder_flat = flatten_text(d.name)
+                    # Check exact flattened match or containment
+                    if folder_flat and (folder_flat == target_flat or target_flat in folder_flat):
+                        matching_dirs.append(d)
+
+    # Deduplicate matches
+    matching_dirs = list(set(matching_dirs))
+
+    if not matching_dirs:
         raise FileNotFoundError(
-            f"\nCould not find '{filename}'.\n"
-            f"Search directory: {BASE_DIR}"
+            f"\nCould not find a folder matching '{applicant_name}'.\n"
+            f"Flattened search target: '{target_flat}'\n"
+            f"Searched roots: {[str(r) for r in search_roots]}"
         )
 
-    if len(matches) > 1:
-        print("\nMultiple files with that name were found:")
+    # Collect source JSON files inside matching folder(s)
+    json_files = []
+    for folder in matching_dirs:
+        for file_path in folder.rglob("*.json"):
+            # Exclude output question files
+            if not file_path.name.casefold().endswith("_questions.json") and \
+               not re.search(r'_questions_[a-z]+\.json$', file_path.name, re.IGNORECASE):
+                json_files.append(file_path)
 
-        for i, path in enumerate(matches, start=1):
+    if not json_files:
+        raise FileNotFoundError(
+            f"\nFound folder(s): {[d.name for d in matching_dirs]},\n"
+            f"but no source CV JSON file was found inside."
+        )
+
+    if len(json_files) > 1:
+        print("\nMultiple matching JSON files found:")
+        for i, path in enumerate(json_files, start=1):
             print(f"{i}. {path}")
 
         while True:
             try:
                 choice = int(input("\nSelect the file number: "))
-
-                if 1 <= choice <= len(matches):
-                    return matches[choice - 1]
-
+                if 1 <= choice <= len(json_files):
+                    return json_files[choice - 1]
                 print("Invalid choice.")
-
             except ValueError:
                 print("Please enter a number.")
 
-    return matches[0]
+    return json_files[0]
 
 
 # ============================================================
@@ -73,96 +110,64 @@ def load_resume(path):
 # GENERATE QUESTIONS
 # ============================================================
 
-def generate_questions(resume):
+def generate_questions(resume, language="English"):
 
     prompt = f"""
 You are an experienced technical interviewer.
 
 Your task is to analyze the candidate's CV and generate
-high-quality interview questions specifically tailored
-to this candidate.
+high-quality interview questions specifically tailored to this candidate.
+
+IMPORTANT LANGUAGE INSTRUCTION:
+All generated questions and text MUST be written in {language}.
+Keep JSON key names (like "question", "difficulty", "topic") in English,
+but output their corresponding values in {language}.
 
 Candidate CV:
-
 {json.dumps(resume, indent=2, ensure_ascii=False)}
 
 Generate questions in the following categories:
-
 1. introduction
-   - General questions about the candidate
-   - Their background and career goals
-
 2. education
-   - Questions about their degree
-   - Relevant coursework
-   - Academic knowledge
-
 3. technical
-   - Questions about technologies and technical skills
-   - Test whether the candidate genuinely understands
-     the technologies listed on their CV
-   - Include easy, medium, and difficult questions
-
 4. projects
-   - Questions about projects listed on the CV
-   - Ask about the candidate's specific contributions
-   - Ask about architecture, implementation, challenges,
-     decisions, testing, and results
-
 5. experience
-   - Questions about professional or practical experience
-   - Ask about responsibilities and achievements
-
 6. certifications
-   - Questions about knowledge gained from certifications
-   - Ask how the candidate applied that knowledge
-
 7. behavioral
-   - Questions about teamwork, problem solving,
-     failure, communication, leadership, and learning
-
 8. critical_thinking
-   - Challenging questions that require the candidate
-     to reason rather than simply recall facts
 
-For technical and project questions, include a difficulty:
-"easy", "medium", or "hard".
+For technical and project questions, include a difficulty: "easy", "medium", or "hard".
+For categories where difficulty is not relevant, use "general".
 
-Each question should have this structure:
-
+Each question object must follow this structure:
 {{
     "question": "...",
     "difficulty": "...",
     "topic": "..."
 }}
 
-For categories where difficulty is not particularly relevant,
-use "general".
-
 IMPORTANT RULES:
-
 - Questions must be relevant to the CV.
 - Do not invent experience that isn't present in the CV.
-- Do not assume the candidate used a technology unless
-  the CV indicates it.
-- Avoid asking duplicate questions.
 - Prefer specific questions over generic questions.
-- Questions should sound like questions an actual
-  interviewer would ask.
 - Include approximately 3-5 questions per category.
-- Return ONLY valid JSON.
+- Output MUST be valid JSON mapping category names to lists of question objects. Do not include introductory text, markdown formatting, or explanations.
 """
 
-    print("\nGenerating interview questions...\n")
+    print(f"\nGenerating interview questions in {language}...\n")
 
     response = ollama.chat(
         model="qwen3:8b",
+        # Force structured JSON format natively from Ollama
+        format="json", 
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "You are a professional technical interviewer "
-                    "who specializes in evaluating candidates."
+                    f"You are a professional technical interviewer "
+                    f"who specializes in evaluating candidates. "
+                    f"You must communicate in {language}. "
+                    f"You must respond with valid JSON only."
                 )
             },
             {
@@ -174,19 +179,18 @@ IMPORTANT RULES:
 
     result = response["message"]["content"].strip()
 
-    # Remove Markdown code fences if the LLM adds them
-    if result.startswith("```json"):
-        result = result[7:]
+    # Fallback cleanup using Regex to extract the pure JSON body
+    json_match = re.search(r'(\{.*\}|\[.*\])', result, re.DOTALL)
+    if json_match:
+        result = json_match.group(0)
 
-    elif result.startswith("```"):
-        result = result[3:]
-
-    if result.endswith("```"):
-        result = result[:-3]
-
-    result = result.strip()
-
-    return json.loads(result)
+    try:
+        return json.loads(result)
+    except json.JSONDecodeError as e:
+        print("\n--- Failed Raw Output from LLM ---")
+        print(result)
+        print("----------------------------------\n")
+        raise e
 
 
 # ============================================================
@@ -217,30 +221,58 @@ def main():
     print("       AI Interview Question Generator")
     print("========================================")
 
-    # Ask user for JSON filename
-    filename = input("\nEnter resume JSON filename: ")
+    # Ask user for applicant name / folder name
+    applicant_name = input("\nEnter applicant name: ")
 
-    # Find the file
-    json_path = find_json_file(filename)
+    # Find the JSON inside the applicant's folder
+    json_path = find_json_file(applicant_name)
 
     print(f"\nFound JSON file:")
     print(json_path)
+
+    # Ask user for desired output language
+    print("\nSelect question language:")
+    print("1. English")
+    print("2. Vietnamese (Tiếng Việt)")
+    print("3. Custom")
+
+    lang_choice = input("Enter choice (1-3) [default: 1]: ").strip()
+
+    if lang_choice == "2":
+        language = "Vietnamese"
+    elif lang_choice == "3":
+        language = input("Enter language name (e.g., Japanese, Spanish): ").strip() or "English"
+    else:
+        language = "English"
 
     # Load CV
     resume = load_resume(json_path)
 
     # Generate questions
-    questions = generate_questions(resume)
+    questions = generate_questions(resume, language=language)
 
-    # Build output
+    # Fetch candidate name and normalize non-breaking spaces (\u00a0) to regular spaces
+    raw_name = resume.get("name", "candidate")
+    clean_name = raw_name.replace("\u00a0", " ").strip()
+
+    # Build output payload with the cleaned candidate name
     output = {
-        "candidate": resume.get("name"),
+        "candidate": clean_name,
+        "language": language,
         "source_file": json_path.name,
         "questions": questions
     }
 
-    # Save next to the input JSON
-    output_path = json_path.parent / "interview_questions.json"
+    # Construct candidate-and-language-specific filename
+    candidate_slug = (
+        clean_name
+        .lower()
+        .replace(" ", "_")
+    )
+    lang_slug = language.lower()
+
+    output_filename = f"{candidate_slug}_questions_{lang_slug}.json"
+    output_path = json_path.parent / output_filename
 
     save_questions(output, output_path)
 

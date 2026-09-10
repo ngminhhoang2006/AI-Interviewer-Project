@@ -78,7 +78,7 @@ def extract_applicant_info(text):
     phone_pattern = r"""
         (?:
             📞|☎|📱|
-            phone|tel|telephone|mobile|contact
+            phone|tel|telephone|mobile|contact|điện\s*thoại|sđt|liên\s*hệ
         )
         \s*:?\s*
         (\+?\d[\d\s().-]{7,}\d)
@@ -109,7 +109,7 @@ def extract_applicant_info(text):
     address_pattern = r"""
         (?:
             |📍|
-            address|location|địa\s+chỉ|nơi\s+ở
+            address|location|địa\s+chỉ|nơi\s+ở|chỗ\s+ở
         )
         \s*:?\s*
         ([^\n]+)
@@ -130,7 +130,7 @@ def extract_applicant_info(text):
 
     age_pattern = r"""
         (?:
-            age
+            age|tuổi
             |
             (\d{1,3})\s*(?:years?\s*old|tuổi)
         )
@@ -155,8 +155,7 @@ def extract_applicant_info(text):
     # --------------------------------------------------
 
     name_patterns = [
-        r"(?:full\s*name|name)\s*:?\s*([^\n]+)",
-        r"(?:họ\s*và\s*tên)\s*:?\s*([^\n]+)"
+        r"(?:full\s*name|name|họ\s*và\s*tên|họ\s*tên|tên)\s*:?\s*([^\n]+)"
     ]
 
     for pattern in name_patterns:
@@ -190,37 +189,53 @@ def extract_applicant_info(text):
         "education": [
             "EDUCATION",
             "EDUCATIONAL BACKGROUND",
-            "ACADEMIC BACKGROUND"
+            "ACADEMIC BACKGROUND",
+            "HỌC VẤN",
+            "TRÌNH ĐỘ HỌC VẤN",
+            "GIÁO DỤC"
         ],
 
         "experience": [
             "EXPERIENCE",
             "WORK EXPERIENCE",
             "EMPLOYMENT",
-            "EMPLOYMENT HISTORY"
+            "EMPLOYMENT HISTORY",
+            "KINH NGHIỆM",
+            "KINH NGHIỆM LÀM VIỆC",
+            "LỊCH SỬ LÀM VIỆC"
         ],
 
         "projects": [
             "PROJECTS",
-            "PROJECT EXPERIENCE"
+            "PROJECT EXPERIENCE",
+            "DỰ ÁN",
+            "DỰ ÁN ĐÃ THỰC HIỆN",
+            "DỰ ÁN CAO CẤP"
         ],
 
         "skills": [
             "SKILLS",
             "TECHNICAL SKILLS",
-            "CORE SKILLS"
+            "CORE SKILLS",
+            "KỸ NĂNG",
+            "KỸ NĂNG CHUYÊN MÔN"
         ],
 
         "certifications": [
             "CERTIFICATIONS",
-            "CERTIFICATES"
+            "CERTIFICATES",
+            "CHỨNG CHỈ",
+            "BẰNG CẤP"
         ],
 
         "awards": [
             "HONORS & AWARDS",
             "HONORS AND AWARDS",
             "AWARDS",
-            "ACHIEVEMENTS"
+            "ACHIEVEMENTS",
+            "GIẢI THƯỞNG",
+            "THÀNH TÍCH",
+            "DANH HIỆU"
         ]
     }
 
@@ -279,16 +294,19 @@ def main():
     # --------------------------------------------------
     # ASK FOR PDF
     # --------------------------------------------------
+    pdf_name = input("Enter the CV filename / Nhập tên file CV: ").strip()
 
-    pdf_name = input("Enter the CV filename: ").strip()
+    # Automatically append .pdf extension if user omitted it
+    if not pdf_name.lower().endswith(".pdf"):
+        pdf_name += ".pdf"
 
     pdf_path = find_pdf(pdf_name)
 
     if pdf_path is None:
-        print(f"Could not find '{pdf_name}'.")
+        print(f"Could not find '{pdf_name}' / Không tìm thấy file '{pdf_name}'.")
         return
 
-    print(f"\nFound PDF:")
+    print(f"\nFound PDF / Đã tìm thấy PDF:")
     print(pdf_path)
 
     # --------------------------------------------------
@@ -304,10 +322,21 @@ def main():
     applicant = extract_applicant_info(text)
 
     # --------------------------------------------------
-    # CREATE JSON OUTPUT PATH
+    # CREATE DIRECTORY & JSON OUTPUT PATH
     # --------------------------------------------------
 
-    output_path = pdf_path.with_suffix(".json")
+    # Fallback to default folder name if name extraction fails
+    raw_name = applicant.get("name") or "Unknown_Applicant"
+
+    # Sanitize name to avoid invalid directory characters (\ / : * ? " < > |)
+    safe_name = re.sub(r'[\\/*?:"<>|]', "", raw_name).strip()
+
+    # Create the folder named after the applicant relative to script_dir
+    output_dir = pdf_path.parent / safe_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Path to save the JSON inside the applicant's folder
+    output_path = output_dir / f"{safe_name}.json"
 
     # --------------------------------------------------
     # SAVE JSON
@@ -326,7 +355,7 @@ def main():
             ensure_ascii=False
         )
 
-    print("\nCV successfully parsed!")
+    print("\nCV successfully parsed! (Thành công!)")
 
     print(f"JSON saved to:")
     print(output_path)
