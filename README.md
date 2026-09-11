@@ -1,5 +1,8 @@
 # AI-Interviewer-Project
-This is an end-to-end, fully automated pipeline designed to streamline the technical interview process using AI. The pipeline uses 4 python files to perform 4 different tasks needed to perform the interview of an interviewee
+This is an end-to-end, fully automated pipeline designed to streamline the technical interview process using AI. The pipeline uses 4 python files to perform 4 different tasks needed to perform the interview of an interviewee.
+
+## Pipeline Overview
+[Resume PDF] ➔ cv_reader.py ➔ questions_generator.py ➔ chatbot.py ➔ grade_interview.py ➔ [Evaluation Report]
 
 ## Module Architecture & Responsibilities
 **`cv_reader.py` — Resume Parsing & Data Extraction**  
