@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-view_report.py
+interviewee_report_checker.py
 
 Prompts for an interviewee's name, locates their folder (matching by
 name the same way the rest of the pipeline does -- ignoring case,
@@ -12,7 +12,7 @@ report:
 Place this alongside the other pipeline scripts / candidate folders
 and run:
 
-    python view_report.py
+    python interviewee_report_checker.py
 """
 
 import re
