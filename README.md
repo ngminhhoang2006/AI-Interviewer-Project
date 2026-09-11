@@ -19,3 +19,15 @@ We have included ai_interview_system.py that automates the entire process in one
 [Resume PDF] ➔ cv_reader.py ➔ questions_generator.py ➔ chatbot.py ➔ grade_interview.py ➔ [Evaluation Report]
 
 We have also included an interviewee_report_checker.py that prints out the results of the desired applicant's interview afterwards.
+
+## Demo
+You can see a demo of the project working at: https://drive.google.com/drive/folders/1HjoeWL_DjMnqFa8DV3Nbbc26OssA0fYs
+
+
+
+
+
+
+
+
+
