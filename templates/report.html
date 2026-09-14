@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interview Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f7f6; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .score-box { background: #eef7fc; border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; }
+        .q-card { border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+        .tag { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; font-weight: bold; background: #eee; }
+        .tag.hire { background: #d4edda; color: #155724; }
+        .tag.nohire { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Interview Evaluation Report</h1>
+    <h2>Candidate: {{ report.candidate }}</h2>
+    <p><strong>Job Title:</strong> {{ report.job_title }} | <strong>Model:</strong> {{ report.model_used }}</p>
+
+    <div class="score-box">
+        <h3>Overall Recommendation: 
+            <span class="tag {{ 'hire' if 'Hire' in report.overall.recommendation else 'nohire' }}">
+                {{ report.overall.recommendation }}
+            </span>
+        </h3>
+        <p><strong>Overall Score:</strong> {{ report.overall.overall_score }}/10</p>
+        <p><strong>Average Answer Score:</strong> {{ report.average_score }}/10</p>
+        <p><strong>Summary:</strong> {{ report.overall.summary }}</p>
+    </div>
+
+    <h2>Per-Question Breakdown</h2>
+    {% for item in report.per_question %}
+    <div class="q-card">
+        <h4>Q{{ item.question_number }}: {{ item.question }}</h4>
+        <p><strong>Answer:</strong> {{ item.answer }}</p>
+        <hr>
+        <p><strong>Score:</strong> {{ item.score }}/10</p>
+        <p><strong>Strengths:</strong> {{ item.strengths }}</p>
+        <p><strong>Concerns:</strong> {{ item.concerns }}</p>
+        <p><strong>Comment:</strong> {{ item.comment }}</p>
+    </div>
+    {% endfor %}
+
+    <a href="/">Back to Start</a>
+</div>
+
+</body>
+</html>
