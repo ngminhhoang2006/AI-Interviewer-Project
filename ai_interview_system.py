@@ -140,7 +140,9 @@ def stage_questions_generator(
 # STAGE 3: questions JSON -> answers JSON (the interview itself)
 # ======================================================================
 
-def stage_chatbot(questions_path: Path, candidate_name: str, language: str) -> Path:
+def stage_chatbot(
+    questions_path: Path, candidate_name: str, language: str, voice_arg: bool = False
+) -> Path:
     banner("STEP 3/4 — Conducting Interview")
 
     questions_data = chatbot.load_questions(questions_path)
@@ -152,14 +154,26 @@ def stage_chatbot(questions_path: Path, candidate_name: str, language: str) -> P
 
     print(f"Loaded {len(all_questions)} questions.")
     print(f"Interview language: {language}")
+
+    # Determine whether to run voice mode
+    voice_mode = voice_arg
+    if not voice_arg:
+        voice_mode = chatbot.ask_interview_mode()
+
+    if voice_mode:
+        chatbot.get_whisper_model()
+
     print("Type 'quit' at any answer prompt to stop early.\n")
 
-    answers = chatbot.run_interview(candidate_name, language, all_questions)
+    answers = chatbot.run_interview(
+        candidate_name, language, all_questions, voice_mode=voice_mode
+    )
 
-    answers_path = chatbot.save_answers(candidate_name, answers, questions_path, language)
+    answers_path = chatbot.save_answers(
+        candidate_name, answers, questions_path, language
+    )
 
     return answers_path
-
 
 # ======================================================================
 # STAGE 4: answers JSON -> grading report (JSON + Markdown)
@@ -229,6 +243,11 @@ def parse_args():
         default=None,
         help="Path to a requirements text file, or the requirements text itself.",
     )
+    parser.add_argument(
+        "--voice",
+        action="store_true",
+        help="Enable voice mode for speaking and listening during the interview.",
+    )
     return parser.parse_args()
 
 
@@ -242,7 +261,9 @@ def main():
     questions_path, candidate_name, language = stage_questions_generator(
         cv_json_path, applicant, args.language
     )
-    answers_path = stage_chatbot(questions_path, candidate_name, language)
+    answers_path = stage_chatbot(
+        questions_path, candidate_name, language, voice_arg=args.voice
+    )
     stage_grade_interview(answers_path, args.model, args.job_title, args.job_requirements)
 
 
