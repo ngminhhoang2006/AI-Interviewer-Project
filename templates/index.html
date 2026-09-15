@@ -2,51 +2,78 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Interviewer - Setup</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f7f6; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
-        h1, h2 { color: #2c3e50; }
-        label { font-weight: bold; display: block; margin-top: 15px; }
-        select, input[type="file"], button { width: 100%; padding: 10px; margin-top: 8px; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background-color: #3498db; color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 20px; }
-        button:hover { background-color: #2980b9; }
-        #status { margin-top: 15px; font-weight: bold; color: #27ae60; }
-        .hidden { display: none; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview Portal - Setup</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="card">
-    <h1>AI Interview System</h1>
-    
-    <div id="step-upload">
-        <h2>Step 1: Upload Candidate CV</h2>
-        <form id="uploadForm">
-            <label for="cv_file">Select CV (PDF):</label>
-            <input type="file" id="cv_file" name="cv_file" accept=".pdf" required>
-            <button type="submit">Parse CV</button>
-        </form>
+<nav class="navbar">
+    <a href="/" class="brand">Interview Portal</a>
+    <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/interview_portal" class="active">Take Interview</a></li>
+        <li><a href="/results_checker">Check Results</a></li>
+    </ul>
+</nav>
+
+<div class="main-container">
+    <div class="page-header">
+        <h1>Candidate Interview Setup</h1>
+        <p class="subtitle">Upload a candidate resume to generate technical interview questions.</p>
     </div>
 
-    <div id="step-questions" class="hidden">
-        <h2>Step 2: Generate Questions</h2>
-        <p>Candidate: <strong id="candidateName"></strong></p>
-        
-        <label for="language">Interview Language:</label>
-        <select id="language">
-            <option value="English">English</option>
-            <option value="Vietnamese">Vietnamese (Tiếng Việt)</option>
-        </select>
+    <div class="card setup-card">
+        <!-- Step 1: Upload CV -->
+        <div id="step-upload">
+            <h3>Step 1: Upload Candidate CV</h3>
+            <form id="uploadForm" class="form-container">
+                <div class="file-upload-wrapper">
+                    <label for="cv_file" class="file-dropzone">
+                        <span class="file-icon">📁</span>
+                        <span id="fileNameDisplay" class="file-text">Click or drag PDF resume here</span>
+                        <input type="file" id="cv_file" name="cv_file" accept=".pdf" required onchange="updateFileName(this)">
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-teal btn-lg">Parse CV</button>
+            </form>
+        </div>
 
-        <button id="btnGenerate">Generate Questions & Start Interview</button>
+        <!-- Step 2: Select Language & Generate -->
+        <div id="step-questions" class="hidden">
+            <h3>Step 2: Generate Questions</h3>
+            <p class="candidate-info">Candidate: <strong id="candidateName"></strong></p>
+            
+            <div class="form-group">
+                <label for="language">Interview Language</label>
+                <div class="select-wrapper">
+                    <select id="language" class="custom-select">
+                        <option value="English">English</option>
+                        <option value="Vietnamese">Vietnamese (Tiếng Việt)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="btnGenerate" class="btn btn-teal btn-lg">Generate Questions & Start Interview</button>
+        </div>
+
+        <div id="status" class="loading-state"></div>
     </div>
-
-    <div id="status"></div>
 </div>
 
 <script>
     let currentCandidateFolder = "";
+
+    function updateFileName(input) {
+        const display = document.getElementById("fileNameDisplay");
+        if (input.files && input.files[0]) {
+            display.innerText = "📄 " + input.files[0].name;
+            display.classList.add("file-selected");
+        } else {
+            display.innerText = "Click or drag PDF resume here";
+            display.classList.remove("file-selected");
+        }
+    }
 
     document.getElementById("uploadForm").onsubmit = async (e) => {
         e.preventDefault();
@@ -55,35 +82,43 @@
 
         document.getElementById("status").innerText = "Parsing CV PDF...";
 
-        const response = await fetch("/upload_cv", { method: "POST", body: formData });
-        const data = await response.json();
+        try {
+            const response = await fetch("/upload_cv", { method: "POST", body: formData });
+            const data = await response.json();
 
-        if (response.ok) {
-            currentCandidateFolder = data.candidate_folder;
-            document.getElementById("candidateName").innerText = data.candidate;
-            document.getElementById("step-upload").classList.add("hidden");
-            document.getElementById("step-questions").classList.remove("hidden");
-            document.getElementById("status").innerText = "CV parsed successfully!";
-        } else {
-            document.getElementById("status").innerText = "Error: " + data.error;
+            if (response.ok) {
+                currentCandidateFolder = data.candidate_folder;
+                document.getElementById("candidateName").innerText = data.candidate;
+                document.getElementById("step-upload").classList.add("hidden");
+                document.getElementById("step-questions").classList.remove("hidden");
+                document.getElementById("status").innerText = "CV parsed successfully!";
+            } else {
+                document.getElementById("status").innerText = "Error: " + (data.error || "Failed to upload CV");
+            }
+        } catch (err) {
+            document.getElementById("status").innerText = "Server error uploading CV.";
         }
     };
 
     document.getElementById("btnGenerate").onclick = async () => {
         const language = document.getElementById("language").value;
-        document.getElementById("status").innerText = "Generating questions via Ollama (this may take a few moments)...";
+        document.getElementById("status").innerText = "Generating questions via AI (this may take a few moments)...";
 
-        const response = await fetch("/generate_questions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ candidate_folder: currentCandidateFolder, language: language })
-        });
+        try {
+            const response = await fetch("/generate_questions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ candidate_folder: currentCandidateFolder, language: language })
+            });
 
-        const data = await response.json();
-        if (response.ok) {
-            window.location.href = data.redirect;
-        } else {
-            document.getElementById("status").innerText = "Error: " + data.error;
+            const data = await response.json();
+            if (response.ok) {
+                window.location.href = data.redirect;
+            } else {
+                document.getElementById("status").innerText = "Error: " + (data.error || "Failed to generate questions");
+            }
+        } catch (err) {
+            document.getElementById("status").innerText = "Server error generating questions.";
         }
     };
 </script>

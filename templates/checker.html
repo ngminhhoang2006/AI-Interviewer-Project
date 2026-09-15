@@ -2,40 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interviewee Report Checker</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f4f7f6; margin: 40px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"] { flex: 1; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #3498db; color: white; border: none; padding: 10px 20px; font-size: 1em; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #2980b9; }
-        .candidate-card { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; margin-bottom: 10px; }
-        .report-btn { background: #2ecc71; margin-top: 5px; }
-        .report-btn:hover { background: #27ae60; }
-        .report-view { margin-top: 30px; background: #fff; padding: 20px; border-radius: 6px; border: 1px solid #ddd; display: none; }
-        .report-view table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-        .report-view th, .report-view td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .report-view th { background-color: #f2f2f2; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<div class="container">
-    <h2>🔍 Interviewee Report Checker</h2>
-    <p>Enter a candidate's name to search for their grading reports.</p>
+<nav class="navbar">
+    <a href="/" class="brand">Interview Portal</a>
+    <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/interview_portal">Take Interview</a></li>
+        <li><a href="/results_checker" class="active">Check Results</a></li>
+    </ul>
+</nav>
 
-    <div class="search-box">
-        <input type="text" id="searchInput" placeholder="e.g., Nguyen Minh Hoang" onkeyup="if(event.key === 'Enter') searchCandidate()">
-        <button onclick="searchCandidate()">Search</button>
+<div class="main-container">
+    <div class="page-header">
+        <h1>🔍 Interviewee Report Checker</h1>
+        <p class="subtitle">Search for candidate records and review completed grading evaluations.</p>
     </div>
 
-    <div id="searchResults"></div>
+    <div class="card search-card">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Enter candidate name (e.g., Nguyen Minh Hoang)..." onkeyup="if(event.key === 'Enter') searchCandidate()">
+            <button class="btn btn-teal" onclick="searchCandidate()">Search</button>
+        </div>
 
-    <div id="reportContainer" class="report-view">
-        <button onclick="closeReport()" style="background: #e74c3c; float: right;">Close Report</button>
-        <h3 id="reportTitle">Candidate Report</h3>
-        <hr>
+        <div id="searchResults" class="results-container"></div>
+    </div>
+
+    <div id="reportContainer" class="card report-view hidden">
+        <div class="report-header">
+            <h3 id="reportTitle">Candidate Report</h3>
+            <button onclick="closeReport()" class="btn btn-outline-danger">Close Report</button>
+        </div>
+        <hr class="divider">
         <div id="reportContent"></div>
     </div>
 </div>
@@ -51,47 +53,51 @@
             return;
         }
 
-        resultsDiv.innerHTML = "<em>Searching...</em>";
-        reportDiv.style.display = "none";
+        resultsDiv.innerHTML = "<div class='loading-state'>Searching database...</div>";
+        reportDiv.classList.add("hidden");
 
-        const res = await fetch("/api/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: query })
-        });
+        try {
+            const res = await fetch("/api/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: query })
+            });
 
-        const data = await res.json();
-        resultsDiv.innerHTML = "";
+            const data = await res.json();
+            resultsDiv.innerHTML = "";
 
-        if (data.message) {
-            resultsDiv.innerHTML = `<p>${data.message}</p>`;
-            return;
-        }
-
-        data.candidates.forEach(cand => {
-            const card = document.createElement("div");
-            card.className = "candidate-card";
-
-            let reportsHTML = "";
-            if (cand.reports.length === 0) {
-                reportsHTML = "<em>No report file (.md) found for this candidate.</em>";
-            } else {
-                cand.reports.forEach(reportName => {
-                    reportsHTML += `
-                        <div>
-                            <span>📄 ${reportName}</span>
-                            <button class="report-btn" onclick="viewReport('${cand.folder_path}', '${reportName}')">View Report</button>
-                        </div>
-                    `;
-                });
+            if (data.message) {
+                resultsDiv.innerHTML = `<p class="empty-msg">${data.message}</p>`;
+                return;
             }
 
-            card.innerHTML = `
-                <h4>Candidate Folder: ${cand.folder_name}</h4>
-                ${reportsHTML}
-            `;
-            resultsDiv.appendChild(card);
-        });
+            data.candidates.forEach(cand => {
+                const card = document.createElement("div");
+                card.className = "candidate-item";
+
+                let reportsHTML = "";
+                if (cand.reports.length === 0) {
+                    reportsHTML = "<p class='empty-msg'>No report file (.md) found for this candidate.</p>";
+                } else {
+                    cand.reports.forEach(reportName => {
+                        reportsHTML += `
+                            <div class="report-row">
+                                <span class="file-name">📄 ${reportName}</span>
+                                <button class="btn btn-teal-sm" onclick="viewReport('${cand.folder_path}', '${reportName}')">View Report</button>
+                            </div>
+                        `;
+                    });
+                }
+
+                card.innerHTML = `
+                    <h4>Candidate Folder: <strong>${cand.folder_name}</strong></h4>
+                    ${reportsHTML}
+                `;
+                resultsDiv.appendChild(card);
+            });
+        } catch (err) {
+            resultsDiv.innerHTML = "<p class='empty-msg'>Failed to retrieve search results.</p>";
+        }
     }
 
     async function viewReport(folderPath, reportFilename) {
@@ -110,12 +116,14 @@
 
         document.getElementById("reportTitle").innerText = `Report: ${data.candidate}`;
         document.getElementById("reportContent").innerHTML = data.content_html;
-        document.getElementById("reportContainer").style.display = "block";
-        document.getElementById("reportContainer").scrollIntoView({ behavior: 'smooth' });
+        
+        const reportDiv = document.getElementById("reportContainer");
+        reportDiv.classList.remove("hidden");
+        reportDiv.scrollIntoView({ behavior: 'smooth' });
     }
 
     function closeReport() {
-        document.getElementById("reportContainer").style.display = "none";
+        document.getElementById("reportContainer").classList.add("hidden");
     }
 </script>
 
