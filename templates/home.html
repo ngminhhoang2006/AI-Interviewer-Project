@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AI Interview Platform{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to the Interview Portal</h1>
+    <p>Upload CVs, conduct automated interviews, and evaluate candidate responses efficiently.</p>
+</div>
+
+<div class="cards-grid">
+    <div class="card">
+        <h2>Candidate Interview Portal</h2>
+        <p>Upload a candidate's resume (PDF), auto-generate relevant technical questions, and start the interview session.</p>
+        <a href="/interview_portal" class="btn">Start Interview</a>
+    </div>
+
+    <div class="card">
+        <h2>Results & Grading Checker</h2>
+        <p>Search candidate records, view completed interview reports, transcript analysis, and automated grade summaries.</p>
+        <a href="/results_checker" class="btn btn-secondary">Check Results</a>
+    </div>
+</div>
+{% endblock %}
