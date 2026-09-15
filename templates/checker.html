@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interviewee Report Checker</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f7f6; margin: 40px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #3498db; color: white; border: none; padding: 10px 20px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+        .candidate-card { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; margin-bottom: 10px; }
+        .report-btn { background: #2ecc71; margin-top: 5px; }
+        .report-btn:hover { background: #27ae60; }
+        .report-view { margin-top: 30px; background: #fff; padding: 20px; border-radius: 6px; border: 1px solid #ddd; display: none; }
+        .report-view table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .report-view th, .report-view td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .report-view th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔍 Interviewee Report Checker</h2>
+    <p>Enter a candidate's name to search for their grading reports.</p>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="e.g., Nguyen Minh Hoang" onkeyup="if(event.key === 'Enter') searchCandidate()">
+        <button onclick="searchCandidate()">Search</button>
+    </div>
+
+    <div id="searchResults"></div>
+
+    <div id="reportContainer" class="report-view">
+        <button onclick="closeReport()" style="background: #e74c3c; float: right;">Close Report</button>
+        <h3 id="reportTitle">Candidate Report</h3>
+        <hr>
+        <div id="reportContent"></div>
+    </div>
+</div>
+
+<script>
+    async function searchCandidate() {
+        const query = document.getElementById("searchInput").value.trim();
+        const resultsDiv = document.getElementById("searchResults");
+        const reportDiv = document.getElementById("reportContainer");
+
+        if (!query) {
+            alert("Please enter a candidate name.");
+            return;
+        }
+
+        resultsDiv.innerHTML = "<em>Searching...</em>";
+        reportDiv.style.display = "none";
+
+        const res = await fetch("/api/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: query })
+        });
+
+        const data = await res.json();
+        resultsDiv.innerHTML = "";
+
+        if (data.message) {
+            resultsDiv.innerHTML = `<p>${data.message}</p>`;
+            return;
+        }
+
+        data.candidates.forEach(cand => {
+            const card = document.createElement("div");
+            card.className = "candidate-card";
+
+            let reportsHTML = "";
+            if (cand.reports.length === 0) {
+                reportsHTML = "<em>No report file (.md) found for this candidate.</em>";
+            } else {
+                cand.reports.forEach(reportName => {
+                    reportsHTML += `
+                        <div>
+                            <span>📄 ${reportName}</span>
+                            <button class="report-btn" onclick="viewReport('${cand.folder_path}', '${reportName}')">View Report</button>
+                        </div>
+                    `;
+                });
+            }
+
+            card.innerHTML = `
+                <h4>Candidate Folder: ${cand.folder_name}</h4>
+                ${reportsHTML}
+            `;
+            resultsDiv.appendChild(card);
+        });
+    }
+
+    async function viewReport(folderPath, reportFilename) {
+        const res = await fetch("/api/get_report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ folder_path: folderPath, report_filename: reportFilename })
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        document.getElementById("reportTitle").innerText = `Report: ${data.candidate}`;
+        document.getElementById("reportContent").innerHTML = data.content_html;
+        document.getElementById("reportContainer").style.display = "block";
+        document.getElementById("reportContainer").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function closeReport() {
+        document.getElementById("reportContainer").style.display = "none";
+    }
+</script>
+
+</body>
+</html>
