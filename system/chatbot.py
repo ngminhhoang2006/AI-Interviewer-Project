@@ -8,6 +8,8 @@ import unicodedata
 import os
 import sys
 import importlib.util
+import tempfile
+import threading
 
 
 def _ensure_nvidia_lib_paths():
@@ -130,13 +132,31 @@ _ensure_nvidia_lib_paths()
 #     `pip install webrtcvad` fails to build on your platform, try
 #     `pip install webrtcvad-wheels` instead (same API, prebuilt wheels).
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# Voice mode dependencies
+# ------------------------------------------------------------
 try:
     import sounddevice as sd
     import numpy as np
-    import pyttsx3
     _VOICE_CORE_AVAILABLE = True
 except ImportError:
     _VOICE_CORE_AVAILABLE = False
+
+try:
+    import pyttsx3
+    PYTTSX3_AVAILABLE = True
+except ImportError:
+    PYTTSX3_AVAILABLE = False
+
+try:
+    from kokoro_onnx import Kokoro
+    KOKORO_AVAILABLE = True
+except ImportError:
+    KOKORO_AVAILABLE = False
+
+_tts_engine = None
+_kokoro_engine = None
+_USING_KOKORO = False
 
 try:
     from faster_whisper import WhisperModel
@@ -506,11 +526,116 @@ def listen_for_answer(language):
 # ============================================================
 
 def get_tts_engine():
-    """Initialize the local text-to-speech engine once and reuse it."""
+    """
+    Attempts to load the Kokoro-82M TTS engine first.
+    Returns the Kokoro engine instance if loaded, or None if unavailable.
+    """
+    global _kokoro_engine, _USING_KOKORO
+
+    if _kokoro_engine is not None:
+        return _kokoro_engine
+
+    if KOKORO_AVAILABLE:
+        model_path = BASE_DIR / "kokoro-v0_19.onnx"
+        voices_path = BASE_DIR / "voices-v1.0.bin"
+
+        if not voices_path.exists():
+            voices_path = BASE_DIR / "voices.bin"
+
+        if model_path.exists() and voices_path.exists():
+            try:
+                print("\n(Initializing Kokoro-ONNX neural voice engine...)")
+                _kokoro_engine = Kokoro(str(model_path), str(voices_path))
+                _USING_KOKORO = True
+                return _kokoro_engine
+            except Exception as e:
+                print(f"\n(Failed to initialize Kokoro-ONNX: {e})")
+        else:
+            print(f"\n(Kokoro ONNX model/voice files not found at {BASE_DIR})")
+
+    _USING_KOKORO = False
+    return None
+
+
+def get_kokoro_voice(language=None):
+    """
+    Shared voice-selection logic for Kokoro, used by both the CLI `speak()`
+    path and the Flask `/api/tts` web route, so they never drift apart.
+    """
+    lang_clean = flatten_text(language) if language else "english"
+    if "vietnamese" in lang_clean or lang_clean == "vi":
+        return "af_bella"
+    return "af_heart"
+
+
+def get_pyttsx3_engine():
+    """
+    Lazy initialization for pyttsx3, isolated strictly for desktop/CLI mode.
+    """
     global _tts_engine
-    if _tts_engine is None:
-        _tts_engine = pyttsx3.init()
-    return _tts_engine
+    if _tts_engine is not None:
+        return _tts_engine
+
+    if PYTTSX3_AVAILABLE:
+        try:
+            _tts_engine = pyttsx3.init()
+            return _tts_engine
+        except Exception as e:
+            print(f"\n(Failed to initialize pyttsx3: {e})")
+    return None
+
+# pyttsx3's underlying drivers (SAPI5 / NSSpeechSynthesizer / espeak) are not
+# reliably safe to run concurrently from multiple threads, and Flask's dev
+# server can handle requests on separate threads. This lock serializes all
+# pyttsx3 calls so two overlapping /api/tts requests can't corrupt each other.
+_pyttsx3_lock = threading.Lock()
+
+
+def synthesize_pyttsx3_wav(text, language=None):
+    """
+    Render text to WAV bytes using pyttsx3, for use as the web app's
+    server-side audio fallback (Kokoro's HTTP-friendly cousin).
+
+    Unlike the CLI's speak(), which reuses one long-lived engine instance
+    across a whole terminal session, this creates a fresh engine per call.
+    pyttsx3 engines aren't guaranteed to run save_to_file() reliably more
+    than once on some platforms/drivers, so a throwaway instance per HTTP
+    request is the safer choice here.
+
+    Returns the WAV file's raw bytes, or None if pyttsx3 is unavailable
+    or synthesis fails for any reason.
+    """
+    if not PYTTSX3_AVAILABLE:
+        return None
+
+    tmp_path = None
+    with _pyttsx3_lock:
+        try:
+            engine = pyttsx3.init()
+            _select_voice_for_language(engine, language)
+
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
+
+            engine.save_to_file(text, tmp_path)
+            engine.runAndWait()
+            try:
+                engine.stop()
+            except Exception:
+                pass
+
+            with open(tmp_path, "rb") as f:
+                data = f.read()
+
+            return data if data else None
+
+        except Exception as e:
+            print(f"\n(pyttsx3 web-fallback synthesis failed: {e})")
+            return None
+
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
 
 def _select_voice_for_language(engine, language):
@@ -535,18 +660,38 @@ def _select_voice_for_language(engine, language):
                 engine.setProperty("voice", voice.id)
                 return
     except Exception:
-        # If voice enumeration fails for any reason, just use the default voice.
         pass
 
 
 def speak(text, language=None):
-    """Speak text aloud using the local TTS engine (no-op if voice mode is off)."""
+    """
+    Speak text aloud in CLI terminal mode.
+    Tries Kokoro first -> Falls back to pyttsx3 if running locally.
+    """
     if not text:
         return
-    engine = get_tts_engine()
-    _select_voice_for_language(engine, language)
-    engine.say(text)
-    engine.runAndWait()
+
+    # 1. Primary path: Kokoro-ONNX
+    kokoro = get_tts_engine()
+    if kokoro and _USING_KOKORO:
+        try:
+            voice = get_kokoro_voice(language)
+            samples, sample_rate = kokoro.create(text, voice=voice, speed=1.0, lang="en-us")
+            sd.play(samples, sample_rate)
+            sd.wait()
+            return
+        except Exception as e:
+            print(f"\n(Kokoro speech generation failed: {e}. Falling back to pyttsx3...)")
+
+    # 2. Desktop Fallback path: pyttsx3 (terminal/CLI mode only)
+    engine = get_pyttsx3_engine()
+    if engine:
+        try:
+            _select_voice_for_language(engine, language)
+            engine.say(text)
+            engine.runAndWait()
+        except Exception as e:
+            print(f"\n(pyttsx3 TTS Error: {e})")
 
 
 def ask_interview_mode():
