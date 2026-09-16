@@ -8,7 +8,9 @@ sys.path.append(str(PROJECT_ROOT / "system"))
 import json
 import os
 import re
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
+import io
+import wave
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, send_file
 import cv_reader
 import questions_generator
 import chatbot
@@ -197,6 +199,60 @@ def transcribe_audio():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+@app.route("/api/tts", methods=["POST"])
+def text_to_speech():
+    data = request.json or {}
+    text = data.get("text", "").strip()
+    language = data.get("language", "English")
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    # 1. Primary: Kokoro ONNX neural voice engine
+    tts_engine = chatbot.get_tts_engine()
+    if chatbot._USING_KOKORO and tts_engine is not None:
+        try:
+            voice = chatbot.get_kokoro_voice(language)
+            samples, sample_rate = tts_engine.create(text, voice=voice, speed=1.0, lang="en-us")
+            pcm_data = (samples * 32767).astype("int16").tobytes()
+
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, "wb") as wav_file:
+                wav_file.setnchannels(1)      # Mono
+                wav_file.setsampwidth(2)      # 16-bit
+                wav_file.setframerate(sample_rate)
+                wav_file.writeframes(pcm_data)
+
+            wav_buffer.seek(0)
+            return send_file(
+                wav_buffer,
+                mimetype="audio/wav",
+                as_attachment=False,
+                download_name="speech.wav"
+            )
+        except Exception as e:
+            app.logger.warning(f"Kokoro TTS generation failed, trying pyttsx3 fallback: {e}")
+
+    # 2. Fallback: server-side pyttsx3, still streamed to the browser as WAV
+    #    (the client can't tell this apart from Kokoro audio - same endpoint,
+    #    same response shape).
+    pyttsx3_wav = chatbot.synthesize_pyttsx3_wav(text, language)
+    if pyttsx3_wav:
+        return send_file(
+            io.BytesIO(pyttsx3_wav),
+            mimetype="audio/wav",
+            as_attachment=False,
+            download_name="speech.wav"
+        )
+
+    # 3. Last resort: neither server-side engine is available - let the
+    #    browser's own SpeechSynthesis API speak it instead.
+    return jsonify({
+        "status": "fallback",
+        "use_browser_tts": True,
+        "message": "Neither Kokoro nor server-side pyttsx3 is available. Using client browser TTS."
+    }), 200
 
 
 @app.route("/api/save_answers", methods=["POST"])
