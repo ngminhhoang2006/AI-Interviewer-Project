@@ -75,34 +75,39 @@ def flatten_text(text: str) -> str:
 
 def get_sherpa_asr_recognizer():
     global _sherpa_asr_recognizer
+
     if _sherpa_asr_recognizer is not None:
         return _sherpa_asr_recognizer
 
     if not SHERPA_ONNX_AVAILABLE:
-        raise ImportError("sherpa_onnx is not installed. Run `pip install sherpa-onnx`.")
+        print("[STT Error] sherpa_onnx package is not available.")
+        return None
 
-    model_dir = BASE_DIR / "sherpa_models" / "asr"
+    model_dir = (BASE_DIR / "sherpa_models" / "asr").resolve()
 
-    # Updated to point to base.en model files
-    encoder = str(model_dir / "base.en-encoder.onnx")
-    decoder = str(model_dir / "base.en-decoder.onnx")
-    tokens = str(model_dir / "base.en-tokens.txt")
+    encoder_path = next(model_dir.glob("*encoder*.onnx"), None)
+    decoder_path = next(model_dir.glob("*decoder*.onnx"), None)
+    tokens_path = next(model_dir.glob("*tokens*.txt"), None)
 
-    if not (Path(encoder).exists() and Path(decoder).exists() and Path(tokens).exists()):
-        # Fallback check for generic names (encoder.onnx, decoder.onnx, tokens.txt)
-        encoder = str(model_dir / "encoder.onnx")
-        decoder = str(model_dir / "decoder.onnx")
-        tokens = str(model_dir / "tokens.txt")
+    if not encoder_path or not decoder_path or not tokens_path:
+        print(f"[STT Error] Missing Whisper models in directory: {model_dir}")
+        return None
 
-    recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
-        encoder=encoder,
-        decoder=decoder,
-        tokens=tokens,
-        num_threads=4,
-    )
-
-    _sherpa_asr_recognizer = recognizer
-    return _sherpa_asr_recognizer
+    try:
+        # FIXED: Use sherpa_onnx factory constructor specifically for Whisper models
+        _sherpa_asr_recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
+            encoder=str(encoder_path),
+            decoder=str(decoder_path),
+            tokens=str(tokens_path),
+            language="",
+            task="transcribe",
+            num_threads=1
+        )
+        print(f"[STT Initialized] Loaded Whisper model from {model_dir}")
+        return _sherpa_asr_recognizer
+    except Exception as e:
+        print(f"[STT Initialization Failed] {e}")
+        return None
 
 
 def _rms(audio_chunk):
@@ -223,25 +228,37 @@ def _record_until_silence_energy():
     return np.concatenate(recorded_chunks)
 
 
-def transcribe_audio_sherpa(samples, sample_rate: int = 16000) -> str:
-    """Transcribes float32 audio samples using Sherpa-ONNX ASR."""
+def transcribe_audio_sherpa(samples, sample_rate: int = 16000, language: str = "English") -> str:
+    """Transcribes float32 PCM samples into text using ISO language codes."""
     recognizer = get_sherpa_asr_recognizer()
     if recognizer is None:
         return ""
 
+    lang_map = {
+        "vietnamese": "vi",
+        "english": "en",
+        "spanish": "es",
+        "french": "fr"
+    }
+    lang_code = lang_map.get(language.lower(), "en")
+
     try:
         stream = recognizer.create_stream()
         
-        # Ensure samples array is float32
-        samples_np = np.array(samples, dtype=np.float32)
+        # Set language code if stream object exposes setter method
+        if hasattr(stream, "set_language"):
+            stream.set_language(lang_code)
 
+        samples_np = np.array(samples, dtype=np.float32)
         stream.accept_waveform(sample_rate, samples_np)
         recognizer.decode_stream(stream)
-        
-        result = stream.result.text.strip()
-        return result
+
+        result_text = stream.result.text.strip()
+        print(f"[STT Success] Recognized ({lang_code}): '{result_text}'")
+        return result_text
+
     except Exception as e:
-        print(f"[Sherpa ASR Error] {e}")
+        print(f"[Sherpa ASR Runtime Error] {e}")
         return ""
 
 
