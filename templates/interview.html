@@ -80,11 +80,24 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
+    
+    // Custom audio player instance for Sherpa-ONNX WAVs
+    let currentAudioPlayer = null;
     const synth = window.speechSynthesis;
+
+    function stopAllSpeech() {
+        if (currentAudioPlayer) {
+            currentAudioPlayer.pause();
+            currentAudioPlayer = null;
+        }
+        if (synth) {
+            synth.cancel();
+        }
+    }
 
     function switchMode(mode) {
         activeMode = mode;
-        synth.cancel();
+        stopAllSpeech();
 
         if (activeMode === 'text') {
             document.getElementById("btnReplay").style.display = "inline-block";
@@ -95,9 +108,49 @@
         }
     }
 
-    function speakQuestion(text, onEndCallback = null) {
+    /**
+     * Synthesizes audio via Sherpa-ONNX (/api/tts) first; falls back to Web Speech API if unhandled.
+     */
+    async function speakQuestion(text, onEndCallback = null) {
+        if (!text || !text.trim()) return;
+        stopAllSpeech();
+
+        console.log("[TTS] Requesting Sherpa-ONNX TTS generation...");
+
+        try {
+            const response = await fetch('/api/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, language: language })
+            });
+
+            const data = await response.json();
+
+            if (data.status === "success" && data.audio_data) {
+                console.log("[TTS] Sherpa-ONNX base64 audio received. Playing...");
+                currentAudioPlayer = new Audio(data.audio_data);
+
+                currentAudioPlayer.onended = () => {
+                    if (activeMode === 'voice' && !isRecording && onEndCallback) {
+                        onEndCallback();
+                    }
+                };
+
+                await currentAudioPlayer.play();
+                return;
+            }
+
+            console.warn("[TTS Fallback] Sherpa-ONNX failed or unavailable, falling back to Web Speech API.");
+            triggerBrowserTTS(text, onEndCallback);
+
+        } catch (err) {
+            console.error("[TTS Error] Failed to reach /api/tts endpoint:", err);
+            triggerBrowserTTS(text, onEndCallback);
+        }
+    }
+
+    function triggerBrowserTTS(text, onEndCallback = null) {
         if (!synth) return;
-        synth.cancel();
 
         const utterance = new SpeechSynthesisUtterance(text);
         const langMap = {
@@ -124,7 +177,15 @@
 
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
+            
+            let mimeType = 'audio/webm';
+            if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+                else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+                else mimeType = '';
+            }
+
+            mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
             audioChunks = [];
 
             mediaRecorder.ondataavailable = (event) => {
@@ -133,7 +194,8 @@
 
             mediaRecorder.onstop = async () => {
                 recordingStatus.innerText = "Transcribing audio...";
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const blobType = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunks, { type: blobType });
                 await sendAudioToWhisper(audioBlob);
                 recordingStatus.innerText = "";
             };
@@ -219,7 +281,7 @@
 
     document.getElementById("btnSubmit").onclick = async () => {
         if (isRecording) stopRecording();
-        synth.cancel();
+        stopAllSpeech();
 
         const answer = document.getElementById("answerInput").value.trim();
         if (!answer) {
@@ -286,7 +348,7 @@
     };
 
     async function finishInterview() {
-        synth.cancel();
+        stopAllSpeech();
         if (isRecording) stopRecording();
         
         document.getElementById("status").innerText = "Saving answers and finalizing interview...";
