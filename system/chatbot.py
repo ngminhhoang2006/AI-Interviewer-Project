@@ -262,26 +262,36 @@ def listen_for_answer(language):
 # SHERPA-ONNX: TEXT-TO-SPEECH (TTS)
 # ============================================================
 
-def get_sherpa_tts_engine():
-    """Initializes and returns the Sherpa-ONNX Offline TTS engine."""
-    global _sherpa_tts_engine
-    if _sherpa_tts_engine is not None:
-        return _sherpa_tts_engine
+# Cache for multi-language TTS engines
+_sherpa_tts_engines = {}
+
+def get_sherpa_tts_engine(language: str = "English"):
+    """Loads and caches language-specific Sherpa-ONNX TTS engines."""
+    global _sherpa_tts_engines
+    
+    lang_key = language.lower()
+    if lang_key in _sherpa_tts_engines:
+        return _sherpa_tts_engines[lang_key]
 
     if not SHERPA_ONNX_AVAILABLE:
-        print("[TTS Error] sherpa_onnx is not installed/imported.")
+        print("[TTS Error] sherpa_onnx package unavailable.")
         return None
 
-    model_dir = (BASE_DIR / "sherpa_models" / "tts").resolve()
-    
+    # Switch directories based on language parameter
+    if lang_key == "vietnamese":
+        model_dir = (BASE_DIR / "sherpa_models" / "tts_vi").resolve()
+    else:
+        model_dir = (BASE_DIR / "sherpa_models" / "tts").resolve()
+
     model_path = model_dir / "model.onnx"
     tokens_path = model_dir / "tokens.txt"
     data_dir_path = model_dir / "espeak-ng-data"
 
     if not model_path.exists():
-        print(f"[TTS Error] Model file missing: {model_path}")
+        print(f"[TTS Error] Model file missing at: {model_path}")
         return None
 
+    # VITS Piper configuration with espeak-ng data support
     tts_config = sherpa_onnx.OfflineTtsConfig(
         model=sherpa_onnx.OfflineTtsModelConfig(
             vits=sherpa_onnx.OfflineTtsVitsModelConfig(
@@ -293,34 +303,30 @@ def get_sherpa_tts_engine():
         )
     )
 
-    _sherpa_tts_engine = sherpa_onnx.OfflineTts(tts_config)
-    return _sherpa_tts_engine
+    engine = sherpa_onnx.OfflineTts(tts_config)
+    _sherpa_tts_engines[lang_key] = engine
+    print(f"[TTS Initialized] Loaded Sherpa-ONNX model for '{language}'")
+    return engine
 
 
-def synthesize_sherpa_wav(text: str) -> bytes:
-    """Synthesizes text to speech using Sherpa-ONNX and returns WAV bytes."""
-    tts = get_sherpa_tts_engine()
+def synthesize_sherpa_wav(text: str, language: str = "English") -> bytes:
+    """Synthesizes text into 16-bit PCM WAV bytes using the requested language model."""
+    tts = get_sherpa_tts_engine(language)
     if tts is None:
         return None
 
     try:
-        # Generate audio samples from Sherpa-ONNX
         audio = tts.generate(text, sid=0, speed=1.0)
-        
-        # Check if samples were generated
         if not audio or len(audio.samples) == 0:
             return None
 
         samples = np.array(audio.samples, dtype=np.float32)
-
-        # Normalize and convert float32 (-1.0 to 1.0) to int16 PCM
         samples_int16 = (samples * 32767).clip(-32768, 32767).astype(np.int16)
 
-        # Write WAV file to in-memory bytes buffer
         buffer = io.BytesIO()
         with wave.open(buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)  # Mono
-            wav_file.setsampwidth(2)  # 16-bit PCM (2 bytes)
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
             wav_file.setframerate(audio.sample_rate)
             wav_file.writeframes(samples_int16.tobytes())
 
@@ -330,7 +336,6 @@ def synthesize_sherpa_wav(text: str) -> bytes:
     except Exception as e:
         print(f"[Sherpa TTS Error] {e}")
         return None
-
 
 def speak(text, language=None):
     """Speaks text using Sherpa-ONNX in CLI terminal mode."""
