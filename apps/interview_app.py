@@ -224,26 +224,25 @@ def transcribe_audio():
 def text_to_speech():
     data = request.json or {}
     text = data.get("text", "").strip()
+    language = data.get("language", "English")
 
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    print(f"[TTS Server] Generating Sherpa-ONNX audio for: '{text[:30]}...'")
-    wav_bytes = chatbot.synthesize_sherpa_wav(text)
+    print(f"[TTS Request] Generating ({language}) audio for: '{text[:30]}...'")
+    wav_bytes = chatbot.synthesize_sherpa_wav(text, language=language)
 
     if wav_bytes:
-        # Encode audio directly to base64 string
         audio_b64 = base64.b64encode(wav_bytes).decode("utf-8")
         return jsonify({
             "status": "success",
             "audio_data": f"data:audio/wav;base64,{audio_b64}"
         }), 200
 
-    print("[TTS Server Error] Sherpa-ONNX returned empty bytes!")
     return jsonify({
         "status": "fallback",
         "use_browser_tts": True,
-        "message": "Sherpa-ONNX TTS engine failed to generate audio."
+        "message": "Sherpa TTS generation failed."
     }), 200
 
 
