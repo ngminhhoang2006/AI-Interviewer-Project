@@ -5,17 +5,22 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT / "system"))
 
+import base64
 import json
 import os
 import re
 import io
 import wave
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, send_file
+import tempfile
+import shutil
+import subprocess
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
 import cv_reader
 import questions_generator
 import chatbot
 import grade_interview
-import tempfile
+import numpy as np
+
 
 app = Flask(
     __name__,
@@ -42,9 +47,6 @@ def index():
     return render_template("index.html")
 
 
-# ----------------------------------------------------------------------
-# STAGE 1: Upload & Parse CV
-# ----------------------------------------------------------------------
 @app.route("/upload_cv", methods=["POST"])
 def upload_cv():
     if "cv_file" not in request.files:
@@ -57,18 +59,15 @@ def upload_cv():
     if not file.filename.lower().endswith(".pdf"):
         return jsonify({"error": "Only PDF files are supported"}), 400
 
-    # Save initial PDF
     temp_pdf_path = UPLOAD_FOLDER / file.filename
     file.save(temp_pdf_path)
 
-    # Extract text & parse
     text = cv_reader.extract_text(temp_pdf_path)
     applicant = cv_reader.extract_applicant_info(text)
 
     raw_name = applicant.get("name") or "Unknown_Applicant"
     cand_dir = get_candidate_dir(raw_name)
 
-    # Move PDF and save parsed JSON into applicant directory
     pdf_destination = cand_dir / file.filename
     temp_pdf_path.replace(pdf_destination)
 
@@ -84,9 +83,6 @@ def upload_cv():
     })
 
 
-# ----------------------------------------------------------------------
-# STAGE 2: Generate Questions
-# ----------------------------------------------------------------------
 @app.route("/generate_questions", methods=["POST"])
 def generate_questions():
     data = request.json or {}
@@ -126,9 +122,6 @@ def generate_questions():
     })
 
 
-# ----------------------------------------------------------------------
-# STAGE 3: Conduct Interview
-# ----------------------------------------------------------------------
 @app.route("/interview/<candidate>/<lang>")
 def interview_page(candidate, lang):
     cand_dir = UPLOAD_FOLDER / candidate
@@ -175,83 +168,82 @@ def transcribe_audio():
 
     audio_file = request.files["audio"]
     
-    # Save incoming webm stream to temporary file
-    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
-        audio_file.save(tmp.name)
-        tmp_path = tmp.name
+    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp_in:
+        audio_file.save(tmp_in.name)
+        input_path = tmp_in.name
+
+    wav_16k_path = input_path + "_16k.wav"
 
     try:
-        model = chatbot.get_whisper_model()
-        
-        # Transcribe directly using faster-whisper or whisper
-        if chatbot.FASTER_WHISPER_AVAILABLE:
-            segments, _ = model.transcribe(tmp_path, beam_size=5)
-            transcript = " ".join(s.text.strip() for s in segments).strip()
-        else:
-            res = model.transcribe(tmp_path)
-            transcript = res.get("text", "").strip()
+        ffmpeg_bin = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 
-        return jsonify({"transcript": transcript})
+        # Convert incoming audio blob to 16kHz Mono 16-bit PCM WAV
+        cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-i", input_path,
+            "-ac", "1",
+            "-ar", "16000",
+            "-c:a", "pcm_s16le",
+            wav_16k_path
+        ]
+
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        if result.returncode != 0:
+            print(f"[FFmpeg Error Log]: {result.stderr}")
+            return jsonify({"error": f"FFmpeg conversion failed: {result.stderr[:200]}"}), 500
+
+        # Read samples directly using python standard wave module
+        with wave.open(wav_16k_path, "rb") as wf:
+            sample_rate = wf.getframerate()
+            num_frames = wf.getnframes()
+            frames = wf.readframes(num_frames)
+            
+            # Convert raw 16-bit PCM bytes to float32 normalized samples (-1.0 to 1.0)
+            samples_int16 = np.frombuffer(frames, dtype=np.int16)
+            samples_float32 = samples_int16.astype(np.float32) / 32768.0
+
+        transcript = chatbot.transcribe_audio_sherpa(samples_float32, sample_rate)
+
+        return jsonify({"transcript": transcript or ""})
 
     except Exception as e:
+        print(f"[STT Error] {e}")
         return jsonify({"error": str(e)}), 500
 
     finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+        for p in [input_path, wav_16k_path]:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
 
 @app.route("/api/tts", methods=["POST"])
 def text_to_speech():
     data = request.json or {}
     text = data.get("text", "").strip()
-    language = data.get("language", "English")
 
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    # 1. Primary: Kokoro ONNX neural voice engine
-    tts_engine = chatbot.get_tts_engine()
-    if chatbot._USING_KOKORO and tts_engine is not None:
-        try:
-            voice = chatbot.get_kokoro_voice(language)
-            samples, sample_rate = tts_engine.create(text, voice=voice, speed=1.0, lang="en-us")
-            pcm_data = (samples * 32767).astype("int16").tobytes()
+    print(f"[TTS Server] Generating Sherpa-ONNX audio for: '{text[:30]}...'")
+    wav_bytes = chatbot.synthesize_sherpa_wav(text)
 
-            wav_buffer = io.BytesIO()
-            with wave.open(wav_buffer, "wb") as wav_file:
-                wav_file.setnchannels(1)      # Mono
-                wav_file.setsampwidth(2)      # 16-bit
-                wav_file.setframerate(sample_rate)
-                wav_file.writeframes(pcm_data)
+    if wav_bytes:
+        # Encode audio directly to base64 string
+        audio_b64 = base64.b64encode(wav_bytes).decode("utf-8")
+        return jsonify({
+            "status": "success",
+            "audio_data": f"data:audio/wav;base64,{audio_b64}"
+        }), 200
 
-            wav_buffer.seek(0)
-            return send_file(
-                wav_buffer,
-                mimetype="audio/wav",
-                as_attachment=False,
-                download_name="speech.wav"
-            )
-        except Exception as e:
-            app.logger.warning(f"Kokoro TTS generation failed, trying pyttsx3 fallback: {e}")
-
-    # 2. Fallback: server-side pyttsx3, still streamed to the browser as WAV
-    #    (the client can't tell this apart from Kokoro audio - same endpoint,
-    #    same response shape).
-    pyttsx3_wav = chatbot.synthesize_pyttsx3_wav(text, language)
-    if pyttsx3_wav:
-        return send_file(
-            io.BytesIO(pyttsx3_wav),
-            mimetype="audio/wav",
-            as_attachment=False,
-            download_name="speech.wav"
-        )
-
-    # 3. Last resort: neither server-side engine is available - let the
-    #    browser's own SpeechSynthesis API speak it instead.
+    print("[TTS Server Error] Sherpa-ONNX returned empty bytes!")
     return jsonify({
         "status": "fallback",
         "use_browser_tts": True,
-        "message": "Neither Kokoro nor server-side pyttsx3 is available. Using client browser TTS."
+        "message": "Sherpa-ONNX TTS engine failed to generate audio."
     }), 200
 
 
@@ -283,9 +275,6 @@ def api_save_answers():
     })
 
 
-# ----------------------------------------------------------------------
-# STAGE 4: Grading & Report
-# ----------------------------------------------------------------------
 @app.route("/report/<candidate>")
 def report_page(candidate):
     cand_dir = UPLOAD_FOLDER / candidate
@@ -295,7 +284,6 @@ def report_page(candidate):
     if not answers_path.exists():
         return f"Answers file for {candidate} not found.", 404
 
-    # Always generate a fresh grading report based on the latest answers
     data = json.loads(answers_path.read_text(encoding="utf-8"))
     report = grade_interview.grade_interview(
         data=data,
@@ -304,7 +292,6 @@ def report_page(candidate):
         job_requirements=None
     )
     
-    # Overwrite old JSON and Markdown reports with the new evaluation
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     
     md_path = cand_dir / f"{candidate}_answers_report.md"
