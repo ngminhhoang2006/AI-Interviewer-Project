@@ -167,7 +167,9 @@ def transcribe_audio():
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files["audio"]
-    
+    # Extract language passed from Step 2 -> frontend session -> FormData
+    language = request.form.get("language", "English")
+
     with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp_in:
         audio_file.save(tmp_in.name)
         input_path = tmp_in.name
@@ -177,7 +179,6 @@ def transcribe_audio():
     try:
         ffmpeg_bin = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 
-        # Convert incoming audio blob to 16kHz Mono 16-bit PCM WAV
         cmd = [
             ffmpeg_bin,
             "-y",
@@ -194,17 +195,16 @@ def transcribe_audio():
             print(f"[FFmpeg Error Log]: {result.stderr}")
             return jsonify({"error": f"FFmpeg conversion failed: {result.stderr[:200]}"}), 500
 
-        # Read samples directly using python standard wave module
         with wave.open(wav_16k_path, "rb") as wf:
             sample_rate = wf.getframerate()
             num_frames = wf.getnframes()
             frames = wf.readframes(num_frames)
             
-            # Convert raw 16-bit PCM bytes to float32 normalized samples (-1.0 to 1.0)
             samples_int16 = np.frombuffer(frames, dtype=np.int16)
             samples_float32 = samples_int16.astype(np.float32) / 32768.0
 
-        transcript = chatbot.transcribe_audio_sherpa(samples_float32, sample_rate)
+        # Pass language parameter to ASR engine
+        transcript = chatbot.transcribe_audio_sherpa(samples_float32, sample_rate, language=language)
 
         return jsonify({"transcript": transcript or ""})
 
