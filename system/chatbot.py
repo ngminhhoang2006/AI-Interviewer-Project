@@ -73,11 +73,23 @@ def flatten_text(text: str) -> str:
 # SHERPA-ONNX: SPEECH-TO-TEXT (ASR)
 # ============================================================
 
-def get_sherpa_asr_recognizer():
-    global _sherpa_asr_recognizer
+# Cache recognizers per language so we don't re-instantiate on every request
+_sherpa_asr_recognizers = {}
 
-    if _sherpa_asr_recognizer is not None:
-        return _sherpa_asr_recognizer
+def get_sherpa_asr_recognizer(language: str = "english"):
+    global _sherpa_asr_recognizers
+
+    lang_map = {
+        "vietnamese": "vi",
+        "english": "en",
+        "spanish": "es",
+        "french": "fr"
+    }
+    target_lang = lang_map.get(language.lower(), "en")
+
+    # Return existing recognizer instance if already loaded
+    if target_lang in _sherpa_asr_recognizers:
+        return _sherpa_asr_recognizers[target_lang]
 
     if not SHERPA_ONNX_AVAILABLE:
         print("[STT Error] sherpa_onnx package is not available.")
@@ -85,6 +97,7 @@ def get_sherpa_asr_recognizer():
 
     model_dir = (BASE_DIR / "sherpa_models" / "asr").resolve()
 
+    # Match non-int8 or int8 models dynamically
     encoder_path = next(model_dir.glob("*encoder*.onnx"), None)
     decoder_path = next(model_dir.glob("*decoder*.onnx"), None)
     tokens_path = next(model_dir.glob("*tokens*.txt"), None)
@@ -94,17 +107,17 @@ def get_sherpa_asr_recognizer():
         return None
 
     try:
-        # FIXED: Use sherpa_onnx factory constructor specifically for Whisper models
-        _sherpa_asr_recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
+        recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
             encoder=str(encoder_path),
             decoder=str(decoder_path),
             tokens=str(tokens_path),
-            language="",
+            language=target_lang,  # Hard-locks the decoding language to 'vi' or 'en'
             task="transcribe",
-            num_threads=1
+            num_threads=2
         )
-        print(f"[STT Initialized] Loaded Whisper model from {model_dir}")
-        return _sherpa_asr_recognizer
+        _sherpa_asr_recognizers[target_lang] = recognizer
+        print(f"[STT Initialized] Loaded Multilingual Whisper recognizer for language code: '{target_lang}'")
+        return recognizer
     except Exception as e:
         print(f"[STT Initialization Failed] {e}")
         return None
@@ -229,32 +242,33 @@ def _record_until_silence_energy():
 
 
 def transcribe_audio_sherpa(samples, sample_rate: int = 16000, language: str = "English") -> str:
-    """Transcribes float32 PCM samples into text using ISO language codes."""
-    recognizer = get_sherpa_asr_recognizer()
+    """Transcribes float32 PCM samples into text using multilingual Whisper."""
+    recognizer = get_sherpa_asr_recognizer(language=language)
     if recognizer is None:
         return ""
 
-    lang_map = {
-        "vietnamese": "vi",
-        "english": "en",
-        "spanish": "es",
-        "french": "fr"
-    }
-    lang_code = lang_map.get(language.lower(), "en")
-
     try:
         stream = recognizer.create_stream()
-        
-        # Set language code if stream object exposes setter method
-        if hasattr(stream, "set_language"):
-            stream.set_language(lang_code)
 
         samples_np = np.array(samples, dtype=np.float32)
         stream.accept_waveform(sample_rate, samples_np)
         recognizer.decode_stream(stream)
 
         result_text = stream.result.text.strip()
-        print(f"[STT Success] Recognized ({lang_code}): '{result_text}'")
+
+        # Clean common Whisper subtitle hallucination artifacts
+        hallucinations = [
+            r"\(speaking in foreign language\)",
+            r"\(speaking foreign language\)",
+            r"\(foreign language\)",
+            r"\[speaking foreign language\]",
+            r"\(music\)",
+            r"\(blank_audio\)"
+        ]
+        for pattern in hallucinations:
+            result_text = re.sub(pattern, "", result_text, flags=re.IGNORECASE).strip()
+
+        print(f"[STT Success] Recognized ({language}): '{result_text}'")
         return result_text
 
     except Exception as e:
