@@ -234,13 +234,15 @@
     async function sendAudioToWhisper(audioBlob) {
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.webm");
+        // Ensure the template variable 'language' (e.g., 'Vietnamese' or 'English') is sent
+        formData.append("language", language); 
 
         try {
             const response = await fetch("/api/interview/transcribe-audio", {
                 method: "POST",
                 body: formData
             });
-            
+    
             const data = await response.json();
             if (data.transcript) {
                 const answerInput = document.getElementById("answerInput");
