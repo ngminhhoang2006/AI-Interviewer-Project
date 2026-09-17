@@ -30,9 +30,18 @@ This is an end-to-end, fully automated website designed to streamline the techni
 
 <img width="1003" height="596" alt="image" src="https://github.com/user-attachments/assets/0be3148a-ac4c-4cd8-bfec-dcd550f2d8a2" />
 
+**STEP 5 (OPTIONAL):  — Check an interviewee's results**  
+  Use the checker page to see the reports of an interviewee's interview session. The reports include a score, and comments on the answers.
+
+<img width="994" height="470" alt="image" src="https://github.com/user-attachments/assets/6cbf4520-1ee8-4262-ba59-e22a55101f43" />
+
+<img width="974" height="877" alt="image" src="https://github.com/user-attachments/assets/4fe44767-44a4-473e-bbb3-aaeece2d4dd7" />
+
 
 ## How to use the website
-We have included ai_interview_system.py that automates the entire process in one go. Alternatively, you can use each separate file in the following order:
+To see and use the website for yourself, download the files, and run home_app.py in the "apps" folder.
+
+For those who don't have an internet connection, We have included ai_interview_system.py that automates the entire process in the terminal/command prompt in one go. Alternatively, you can use each separate file in the following order:
 [Resume PDF] ➔ cv_reader.py ➔ questions_generator.py ➔ chatbot.py ➔ grade_interview.py ➔ [Evaluation Report]
 
 We have also included an interviewee_report_checker.py that prints out the results of the desired applicant's interview afterwards.
