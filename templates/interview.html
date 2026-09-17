@@ -290,6 +290,12 @@
             alert("Please enter an answer or record your voice response.");
             return;
         }
+        
+        // Ask for confirmation before proceeding
+        const isConfirmed = confirm("Are you sure you want to submit this answer?");
+        if (!isConfirmed) {
+            return;
+        }
 
         document.getElementById("status").innerText = "Processing answer...";
 
