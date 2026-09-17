@@ -4,20 +4,34 @@ This is an end-to-end, fully automated website designed to streamline the techni
 <img width="1873" height="915" alt="image" src="https://github.com/user-attachments/assets/93033953-5533-4bf7-a78e-6dcc04780bb6" />
 
 
-## Module Architecture & Responsibilities
-**`cv_reader.py` — Resume Parsing & Data Extraction**  
+## The Full Interview Process
+**STEP 1: Resume Parsing & Data Extraction**  
   Extracts raw text from candidate PDF resumes and uses LLM-driven structured parsing to output clean, schema-compliant JSON. It normalizes key background details, including technical skill sets, professional work history, education, and notable projects.
 
-**`questions_generator.py` — Adaptive Question Synthesis**  
+<img width="972" height="637" alt="image" src="https://github.com/user-attachments/assets/678081cf-3a87-4e00-bdf8-3e34b9370656" />
+
+
+**STEP 2: Adaptive Question Synthesis**  
   Consumes the structured JSON profile to analyze candidate seniority and technology stacks. It dynamically generates a customized set of technical, behavioral, and situational interview questions designed to probe specific background experience and potential gaps.
 
-**`chatbot.py` — Interactive Interview Execution**  
+<img width="893" height="575" alt="image" src="https://github.com/user-attachments/assets/0e6c9195-7eb3-4a81-b2bf-4eb05c9c9388" />
+
+
+**STEP 3:  — Interactive Interview Execution**  
   Serves as the conversational engine that conducts the live interview session. It presents synthesized questions to the candidate sequentially, processes user inputs, handles real-time follow-ups or clarifications, and maintains session state to output a complete candidate response transcript.
 
-**`grade_interview.py` — Evaluation & Report Generation**  
+<img width="838" height="754" alt="image" src="https://github.com/user-attachments/assets/409a2c67-2444-4814-993c-ac7c5ac12c73" />
+
+
+**STEP 4:  — Evaluation & Report Generation**  
   Analyzes the final interview transcript against the generated question set and baseline candidate context. It scores answers based on technical accuracy, problem-solving depth, and communication clarity, yielding a comprehensive evaluation report with structured metrics and hiring recommendations.
 
-## How to use the module
+<img width="1073" height="667" alt="image" src="https://github.com/user-attachments/assets/fbb27151-f704-468e-9f6f-3177587abc8b" />
+
+<img width="1003" height="596" alt="image" src="https://github.com/user-attachments/assets/0be3148a-ac4c-4cd8-bfec-dcd550f2d8a2" />
+
+
+## How to use the website
 We have included ai_interview_system.py that automates the entire process in one go. Alternatively, you can use each separate file in the following order:
 [Resume PDF] ➔ cv_reader.py ➔ questions_generator.py ➔ chatbot.py ➔ grade_interview.py ➔ [Evaluation Report]
 
