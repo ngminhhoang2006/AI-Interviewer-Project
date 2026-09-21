@@ -235,7 +235,12 @@
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.webm");
         // Ensure the template variable 'language' (e.g., 'Vietnamese' or 'English') is sent
-        formData.append("language", language); 
+        formData.append("language", language);
+        // Give the LLM cleanup pass context on what's being answered
+        const questionForContext = isFollowUp
+            ? document.getElementById("questionText").innerText
+            : (currentQuestionObj ? currentQuestionObj.question : "");
+        formData.append("current_question", questionForContext);
 
         try {
             const response = await fetch("/api/interview/transcribe-audio", {
