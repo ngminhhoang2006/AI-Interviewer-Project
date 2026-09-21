@@ -169,6 +169,8 @@ def transcribe_audio():
     audio_file = request.files["audio"]
     # Extract language passed from Step 2 -> frontend session -> FormData
     language = request.form.get("language", "English")
+    # The question currently being answered, used as context for LLM cleanup
+    current_question = request.form.get("current_question", "")
 
     with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp_in:
         audio_file.save(tmp_in.name)
@@ -203,10 +205,22 @@ def transcribe_audio():
             samples_int16 = np.frombuffer(frames, dtype=np.int16)
             samples_float32 = samples_int16.astype(np.float32) / 32768.0
 
-        # Pass language parameter to ASR engine
-        transcript = chatbot.transcribe_audio_sherpa(samples_float32, sample_rate, language=language)
+        # Pass language parameter to ASR engine (denoises with Sherpa-ONNX's
+        # DPDFNet denoiser, then routes to Parakeet or Whisper depending on language)
+        raw_transcript = chatbot.transcribe_audio_sherpa(samples_float32, sample_rate, language=language)
 
-        return jsonify({"transcript": transcript or ""})
+        # LLM cleanup pass via Ollama: fixes misheard words/punctuation
+        # without changing what the candidate actually said
+        corrected_transcript = chatbot.correct_transcript(
+            raw_transcript,
+            question_context=current_question,
+            language=language
+        )
+
+        return jsonify({
+            "transcript": corrected_transcript or "",
+            "raw_transcript": raw_transcript or ""
+        })
 
     except Exception as e:
         print(f"[STT Error] {e}")
