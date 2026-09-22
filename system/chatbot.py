@@ -721,7 +721,8 @@ Otherwise, respond with ONLY the follow-up question.
             {"role": "system", "content": "You are a professional technical interviewer."},
             {"role": "user", "content": prompt}
         ],
-        think=False
+        think=False,
+        keep_alive="30m"  # Same model as correct_transcript — keep it warm between the two call sites too.
     )
 
     result = response["message"]["content"].strip()
@@ -778,7 +779,14 @@ no preamble, explanation, reasoning, or quotation marks."""
                 {"role": "system", "content": "You are a careful transcript editor. You reason step by step before answering, but your final output is only the corrected transcript — never your reasoning."},
                 {"role": "user", "content": prompt}
             ],
-            think=True
+            think=True,
+            # Keeps the model resident in memory between requests. Without this,
+            # Ollama's default 5-minute idle timeout can unload an 8B model
+            # between answers (candidate is still talking/thinking), and the
+            # *next* correction pays a full reload before it even starts
+            # reasoning. This only affects memory residency, not reasoning
+            # depth or output quality.
+            keep_alive="30m"
         )
         result = response["message"]["content"].strip()
         if "<think>" in result:
