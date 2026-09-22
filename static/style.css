@@ -731,3 +731,89 @@ button.btn-teal-sm:hover {
     border: 1px solid #f87171;
     font-size: 14px;
 }
+
+/* ==========================================================================
+   9. Microphone Test Page Styles
+   ========================================================================== */
+.meter-container {
+    width: 100%;
+    height: 20px;
+    background-color: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.meter-fill {
+    height: 100%;
+    width: 0%;
+    background-color: #10b981;
+    transition: width 0.05s ease-out;
+}
+
+.test-audio-preview {
+    width: 100%;
+    margin-top: 15px;
+}
+
+.form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    margin-bottom: 12px;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+/* ==========================================================================
+   10. Results & Checker Table Styles
+   ========================================================================== */
+.role-badge {
+    background: #e2e8f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: #334155;
+    font-weight: 600;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.results-table th {
+    background-color: #f1f5f9;
+    text-align: left;
+    height: 40px;
+    padding: 8px 12px;
+    color: #475569;
+    border-bottom: 2px solid #cbd5e1;
+}
+
+.results-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    height: 45px;
+}
+
+.admin-search-box {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.report-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.report-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
