@@ -11,12 +11,15 @@ import re
 import io
 import shutil
 import subprocess
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, session
 import cv_reader
 import questions_generator
 import chatbot
 import grade_interview
 import numpy as np
+
+from flask_login import current_user
+from models import db, InterviewResult
 
 
 app = Flask(
@@ -290,7 +293,6 @@ def api_save_answers():
         "redirect": url_for("report_page", candidate=candidate_folder)
     })
 
-
 @app.route("/report/<candidate>")
 def report_page(candidate):
     cand_dir = UPLOAD_FOLDER / candidate
@@ -300,6 +302,7 @@ def report_page(candidate):
     if not answers_path.exists():
         return f"Answers file for {candidate} not found.", 404
 
+    # 1. Read answers and generate the evaluation report
     data = json.loads(answers_path.read_text(encoding="utf-8"))
     report = grade_interview.grade_interview(
         data=data,
@@ -308,13 +311,37 @@ def report_page(candidate):
         job_requirements=None
     )
     
+    # Save report files to disk
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    
     md_path = cand_dir / f"{candidate}_answers_report.md"
     grade_interview.write_markdown_report(report, md_path)
 
-    return render_template("report.html", report=report)
+    # 2. SAVE TO DATABASE FOR CURRENT LOGGED-IN USER
+    if current_user.is_authenticated:
+        try:
+            # Safely extract scores and feedback from the generated report object/dict
+            overall_score = report.get("overall_score") or report.get("interview_score")
+            cv_score = report.get("cv_score")
+            feedback = report.get("summary") or report.get("overall_feedback") or "Completed interview evaluation."
+            selected_language = data.get("interview_language", "English")
 
+            new_result = InterviewResult(
+                user_id=current_user.id,
+                candidate_name=candidate,
+                language=selected_language,
+                cv_score=cv_score,
+                interview_score=overall_score,
+                feedback_reason=str(feedback)
+            )
+            db.session.add(new_result)
+            db.session.commit()
+            print(f"[DB] Saved interview result to database for {current_user.username}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB Error] Could not save result to database: {e}")
+
+    # 3. Render template
+    return render_template("report.html", report=report)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

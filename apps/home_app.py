@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models import db, User, InterviewResult
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -20,6 +22,57 @@ app = interview_app
 # Ensure template and static paths point to project root folders
 app.template_folder = str(PROJECT_ROOT / "templates")
 app.static_folder = str(PROJECT_ROOT / "static")
+
+# 1. App Configuration
+app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///interview_portal.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+# 2. Setup Flask-Login
+login_manager = LoginManager()
+login_manager.login_view = 'login'
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Initialize Database and Create Default Admin
+with app.app_context():
+    db.create_all()
+    if not User.query.filter_by(role='admin').first():
+        admin = User(username='Nguyen Minh Hoang', email='hoangdeptrai61@gmail.com', role='admin')
+        admin.set_password('PennyPolendina69420!')
+        db.session.add(admin)
+        db.session.commit()
+
+# ----------------------------------------------------------------------
+# Authentication Routes
+# ----------------------------------------------------------------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.check_password(password):
+            login_user(user)
+            flash('Login successful!', 'success')
+            return redirect(url_for('results_checker'))
+        else:
+            flash('Invalid username or password.', 'danger')
+
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('login'))
 
 # ----------------------------------------------------------------------
 # Override / Route & Register Navigation Routes
@@ -45,9 +98,18 @@ def mic_test():
     return render_template("mic_test.html", candidate=candidate, language=language)
 
 @app.route("/results_checker")
+@login_required
 def results_checker():
-    """Render the candidate check results page."""
-    return render_template("checker.html")
+    """
+    Candidate: Sees ONLY their own interview results.
+    Admin: Sees ALL candidates' interview results.
+    """
+    if current_user.is_admin:
+        results = InterviewResult.query.order_by(InterviewResult.created_at.desc()).all()
+    else:
+        results = InterviewResult.query.filter_by(user_id=current_user.id).order_by(InterviewResult.created_at.desc()).all()
+
+    return render_template("checker.html", results=results, is_admin=current_user.is_admin)
 
 
 # ----------------------------------------------------------------------
