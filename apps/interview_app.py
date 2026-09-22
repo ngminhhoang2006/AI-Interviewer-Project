@@ -8,10 +8,9 @@ sys.path.append(str(PROJECT_ROOT / "system"))
 import base64
 import json
 import re
-import io
 import shutil
 import subprocess
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file, session
+from flask import Flask, render_template, request, jsonify, url_for
 import cv_reader
 import questions_generator
 import chatbot
