@@ -7,11 +7,8 @@ sys.path.append(str(PROJECT_ROOT / "system"))
 
 import base64
 import json
-import os
 import re
 import io
-import wave
-import tempfile
 import shutil
 import subprocess
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
@@ -83,6 +80,7 @@ def upload_cv():
     })
 
 
+# 1. Update redirection in generate_questions route
 @app.route("/generate_questions", methods=["POST"])
 def generate_questions():
     data = request.json or {}
@@ -115,11 +113,21 @@ def generate_questions():
     questions_path = cand_dir / f"{candidate_folder}_questions_{lang_slug}.json"
     questions_generator.save_questions(output, questions_path)
 
+    # UPDATED: Redirect to mic_test_page instead of direct interview_page
     return jsonify({
         "status": "success",
         "questions_file": questions_path.name,
-        "redirect": url_for("interview_page", candidate=candidate_folder, lang=lang_slug)
+        "redirect": url_for("mic_test_page", candidate=candidate_folder, lang=lang_slug)
     })
+
+# 2. Add the new Microphone Testing Route
+@app.route("/mic_test/<candidate>/<lang>")
+def mic_test_page(candidate, lang):
+    return render_template(
+        "mic_test.html",
+        candidate=candidate,
+        language=lang
+    )
 
 
 @app.route("/interview/<candidate>/<lang>")
@@ -172,42 +180,45 @@ def transcribe_audio():
     # The question currently being answered, used as context for LLM cleanup
     current_question = request.form.get("current_question", "")
 
-    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp_in:
-        audio_file.save(tmp_in.name)
-        input_path = tmp_in.name
-
-    wav_16k_path = input_path + "_16k.wav"
+    # Read the uploaded webm straight into memory — no need to touch disk
+    # just to hand bytes to ffmpeg.
+    audio_bytes = audio_file.read()
+    SAMPLE_RATE = 16000
 
     try:
         ffmpeg_bin = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 
+        # Pipe webm bytes in via stdin, get raw 16-bit PCM straight out of
+        # stdout. This replaces two temp files (input webm + output wav) and
+        # their writes/reads/deletes with a single in-memory round trip.
         cmd = [
             ffmpeg_bin,
             "-y",
-            "-i", input_path,
+            "-i", "pipe:0",
+            "-f", "s16le",
             "-ac", "1",
-            "-ar", "16000",
-            "-c:a", "pcm_s16le",
-            wav_16k_path
+            "-ar", str(SAMPLE_RATE),
+            "pipe:1"
         ]
 
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            cmd,
+            input=audio_bytes,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
 
         if result.returncode != 0:
-            print(f"[FFmpeg Error Log]: {result.stderr}")
-            return jsonify({"error": f"FFmpeg conversion failed: {result.stderr[:200]}"}), 500
+            err_text = result.stderr.decode("utf-8", errors="replace")
+            print(f"[FFmpeg Error Log]: {err_text}")
+            return jsonify({"error": f"FFmpeg conversion failed: {err_text[:200]}"}), 500
 
-        with wave.open(wav_16k_path, "rb") as wf:
-            sample_rate = wf.getframerate()
-            num_frames = wf.getnframes()
-            frames = wf.readframes(num_frames)
-            
-            samples_int16 = np.frombuffer(frames, dtype=np.int16)
-            samples_float32 = samples_int16.astype(np.float32) / 32768.0
+        samples_int16 = np.frombuffer(result.stdout, dtype=np.int16)
+        samples_float32 = samples_int16.astype(np.float32) / 32768.0
 
         # Pass language parameter to ASR engine (denoises with Sherpa-ONNX's
         # DPDFNet denoiser, then routes to Parakeet or Whisper depending on language)
-        raw_transcript = chatbot.transcribe_audio_sherpa(samples_float32, sample_rate, language=language)
+        raw_transcript = chatbot.transcribe_audio_sherpa(samples_float32, SAMPLE_RATE, language=language)
 
         # LLM cleanup pass via Ollama: fixes misheard words/punctuation
         # without changing what the candidate actually said
@@ -225,14 +236,6 @@ def transcribe_audio():
     except Exception as e:
         print(f"[STT Error] {e}")
         return jsonify({"error": str(e)}), 500
-
-    finally:
-        for p in [input_path, wav_16k_path]:
-            if os.path.exists(p):
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
 
 @app.route("/api/tts", methods=["POST"])
 def text_to_speech():
