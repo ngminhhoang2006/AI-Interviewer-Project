@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Microphone Test - AI Interview Portal{% endblock %}
+
+{% block extra_head %}
+<style>
+    .meter-container {
+        width: 100%;
+        height: 20px;
+        background-color: #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 15px 0;
+    }
+    .meter-fill {
+        height: 100%;
+        width: 0%;
+        background-color: #10b981;
+        transition: width 0.05s ease-out;
+    }
+    .test-audio-preview {
+        width: 100%;
+        margin-top: 15px;
+    }
+    .form-select {
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        margin-bottom: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card setup-card">
+    <h2 style="text-align: center;">Microphone Check</h2>
+    
+    {% if candidate %}
+    <p class="subtitle" style="text-align: center;">
+        Please check your microphone and speaker settings before starting the interview for candidate: 
+        <strong>{{ candidate }}</strong>
+    </p>
+    {% else %}
+    <p class="subtitle" style="text-align: center;">
+        Test your audio input level and playback clarity before joining an interview.
+    </p>
+    {% endif %}
+
+    <hr class="divider">
+
+    <!-- Device Selection -->
+    <div class="form-group">
+        <label for="micSelect">Select Audio Input Device</label>
+        <select id="micSelect" class="form-select">
+            <option value="">Detecting audio devices...</option>
+        </select>
+    </div>
+
+    <!-- Input Device Status -->
+    <div class="form-group">
+        <label>1. Test Audio Input Level</label>
+        <p class="candidate-info">Speak into your microphone to verify line input response:</p>
+        <div class="meter-container">
+            <div id="meterFill" class="meter-fill"></div>
+        </div>
+        <p id="micStatus" class="file-text">Click "Start Mic Test" to enable visual level meter.</p>
+        <button id="btnStartMic" class="btn btn-blue-sm">Start Mic Test</button>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Record & Playback Verification -->
+    <div class="form-group">
+        <label>2. Test Playback Verification</label>
+        <p class="candidate-info">Record a short phrase and play it back to confirm audio clarity:</p>
+        <div class="btn-group" style="justify-content: flex-start; margin-bottom: 10px;">
+            <button id="btnRecordTest" class="btn btn-orange" disabled>🎤 Record 3s Sample</button>
+        </div>
+        <audio id="audioPlayback" class="test-audio-preview" controls></audio>
+    </div>
+
+    <!-- Step 3 Navigation Button (Only shown during active interview workflow) -->
+    {% if candidate %}
+    <hr class="divider">
+    <div style="text-align: center; margin-top: 20px;">
+        <a id="btnProceed" href="{{ url_for('interview_page', candidate=candidate, lang=language) }}" class="btn btn-teal btn-lg">
+            Proceed to Interview Step 3 ➔
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    let activeStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let animationFrameId = null;
+
+    const micSelect = document.getElementById('micSelect');
+    const meterFill = document.getElementById('meterFill');
+    const micStatus = document.getElementById('micStatus');
+    const btnStartMic = document.getElementById('btnStartMic');
+    const btnRecordTest = document.getElementById('btnRecordTest');
+    const audioPlayback = document.getElementById('audioPlayback');
+
+    async function loadAudioDevices() {
+        try {
+            const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            tempStream.getTracks().forEach(track => track.stop());
+
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputs = devices.filter(device => device.kind === 'audioinput');
+
+            micSelect.innerHTML = '';
+            audioInputs.forEach((device, index) => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.text = device.label || `Microphone ${index + 1}`;
+                micSelect.appendChild(option);
+            });
+        } catch (err) {
+            console.error("Device Enumeration Error:", err);
+            micSelect.innerHTML = '<option value="">Default Microphone</option>';
+        }
+    }
+
+    loadAudioDevices();
+
+    function updateMeter() {
+        if (!analyser) return;
+        const array = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(array);
+        
+        let values = 0;
+        for (let i = 0; i < array.length; i++) {
+            values += array[i];
+        }
+
+        const average = values / array.length;
+        const pct = Math.min(100, Math.round((average / 128) * 100));
+        meterFill.style.width = pct + '%';
+
+        animationFrameId = requestAnimationFrame(updateMeter);
+    }
+
+    btnStartMic.onclick = async () => {
+        try {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+            }
+
+            const selectedDeviceId = micSelect.value;
+            const constraints = {
+                audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true
+            };
+
+            activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+            micStatus.innerText = "Microphone active. Speak to test volume.";
+            btnStartMic.disabled = true;
+            btnRecordTest.disabled = false;
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+
+            const microphone = audioContext.createMediaStreamSource(activeStream);
+            microphone.connect(analyser);
+
+            updateMeter();
+        } catch (err) {
+            console.error("Microphone Access Error:", err);
+            micStatus.innerText = "Error: Microphone access denied or unavailable.";
+            micStatus.style.color = "#ef4444";
+        }
+    };
+
+    btnRecordTest.onclick = async () => {
+        btnRecordTest.disabled = true;
+        btnRecordTest.innerText = "Recording (3s)...";
+
+        try {
+            const selectedDeviceId = micSelect.value;
+            const constraints = {
+                audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            const mediaRecorder = new MediaRecorder(stream);
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                audioPlayback.src = URL.createObjectURL(blob);
+                btnRecordTest.innerText = "🎤 Record 3s Sample";
+                btnRecordTest.disabled = false;
+            };
+
+            mediaRecorder.start();
+            setTimeout(() => {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+            }, 3000);
+        } catch (err) {
+            alert("Failed to record sample audio.");
+            btnRecordTest.innerText = "🎤 Record 3s Sample";
+            btnRecordTest.disabled = false;
+        }
+    };
+
+    const btnProceed = document.getElementById('btnProceed');
+    if (btnProceed) {
+        btnProceed.onclick = () => {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            if (activeStream) activeStream.getTracks().forEach(track => track.stop());
+            if (audioContext) audioContext.close();
+        };
+    }
+</script>
+{% endblock %}

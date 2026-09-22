@@ -13,6 +13,7 @@
         <a href="/" class="brand">Interview Portal</a>
         <ul class="nav-links">
             <li><a href="/" class="{% if request.path == '/' %}active{% endif %}">Home</a></li>
+            <li><a href="/mic_test" class="{% if request.path == '/mic_test' %}active{% endif %}">Test Mic</a></li>
             <li><a href="/interview_portal" class="{% if '/interview' in request.path or request.path == '/interview_portal' %}active{% endif %}">Take Interview</a></li>
             <li><a href="/results_checker" class="{% if '/results' in request.path or request.path == '/results_checker' %}active{% endif %}">Check Results</a></li>
         </ul>
