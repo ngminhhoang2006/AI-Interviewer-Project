@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -36,6 +36,13 @@ def homepage():
 def interview_portal():
     """Render the main candidate interview start page."""
     return render_template("index.html")
+
+@app.route("/mic_test")
+def mic_test():
+    """Render the microphone test page."""
+    candidate = request.args.get("candidate", None)
+    language = request.args.get("lang", "English")
+    return render_template("mic_test.html", candidate=candidate, language=language)
 
 @app.route("/results_checker")
 def results_checker():
