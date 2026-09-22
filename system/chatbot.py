@@ -5,9 +5,6 @@ from datetime import datetime
 from collections import deque
 import re
 import unicodedata
-import os
-import sys
-import tempfile
 import threading
 import io
 import wave
