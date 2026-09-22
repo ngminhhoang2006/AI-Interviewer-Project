@@ -198,7 +198,8 @@ label {
    ========================================================================== */
 select, 
 input[type="file"], 
-input[type="text"], 
+input[type="text"],
+input[type="password"], 
 textarea {
     width: 100%;
     padding: 10px 14px;
@@ -215,6 +216,7 @@ textarea {
 }
 
 input[type="text"]:focus,
+input[type="password"]:focus,
 textarea:focus,
 .custom-select:focus {
     outline: none;
@@ -660,4 +662,72 @@ button.btn-teal-sm:hover {
     0% { opacity: 1; }
     50% { opacity: 0.7; }
     100% { opacity: 1; }
+}
+
+/* ==========================================================================
+   8. Authentication & Login Styles
+   ========================================================================== */
+.login-card {
+    max-width: 420px;
+    margin: 60px auto;
+    padding: 32px;
+}
+
+.login-card h2 {
+    text-align: center;
+    margin-bottom: 24px;
+    color: #1e293b;
+}
+
+.login-form-control {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #1e293b;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    outline: none;
+}
+
+.login-form-control:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+/* Ensure placeholder text size matches input font-size identically across Chrome, Firefox & Safari */
+.login-form-control::placeholder {
+    font-size: 0.95rem;
+    color: #94a3b8;
+    opacity: 1;
+}
+
+.login-label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #334155;
+    font-size: 14px;
+}
+
+.login-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    justify-content: center;
+}
+
+.login-alert {
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    border-radius: 6px;
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+    font-size: 14px;
 }
