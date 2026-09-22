@@ -7,7 +7,7 @@
     <h1>🔍 Interviewee Report Checker</h1>
     <p class="subtitle">
         Logged in as <strong>{{ current_user.username }}</strong> 
-        <span class="badge" style="background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+        <span class="role-badge">
             {{ 'Admin' if is_admin else 'Candidate' }}
         </span>
     </p>
@@ -18,38 +18,38 @@
     <hr class="divider">
 
     {% if results %}
-    <table class="table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+    <table class="results-table">
         <thead>
-            <tr style="background-color: #f1f5f9; text-align: left; height: 40px;">
+            <tr>
                 {% if is_admin %}
-                <th style="padding: 8px;">User ID</th>
+                <th>User ID</th>
                 {% endif %}
-                <th style="padding: 8px;">Candidate Name</th>
-                <th style="padding: 8px;">Language</th>
-                <th style="padding: 8px;">CV Score</th>
-                <th style="padding: 8px;">Interview Score</th>
-                <th style="padding: 8px;">Feedback</th>
-                <th style="padding: 8px;">Date</th>
+                <th>Candidate Name</th>
+                <th>Language</th>
+                <th>CV Score</th>
+                <th>Interview Score</th>
+                <th>Feedback</th>
+                <th>Date</th>
             </tr>
         </thead>
         <tbody>
             {% for r in results %}
-            <tr style="border-bottom: 1px solid #e2e8f0; height: 45px;">
+            <tr>
                 {% if is_admin %}
-                <td style="padding: 8px;">{{ r.user_id }}</td>
+                <td>{{ r.user_id }}</td>
                 {% endif %}
-                <td style="padding: 8px;"><strong>{{ r.candidate_name }}</strong></td>
-                <td style="padding: 8px;">{{ r.language }}</td>
-                <td style="padding: 8px;">{{ r.cv_score if r.cv_score else 'N/A' }}</td>
-                <td style="padding: 8px;">{{ r.interview_score if r.interview_score else 'N/A' }}</td>
-                <td style="padding: 8px;">{{ r.feedback_reason }}</td>
-                <td style="padding: 8px;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td><strong>{{ r.candidate_name }}</strong></td>
+                <td>{{ r.language }}</td>
+                <td>{{ r.cv_score if r.cv_score else 'N/A' }}</td>
+                <td>{{ r.interview_score if r.interview_score else 'N/A' }}</td>
+                <td>{{ r.feedback_reason }}</td>
+                <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p class="empty-msg" style="padding: 20px 0; color: #64748b;">No interview records found for your account.</p>
+    <p class="empty-msg" style="padding: 20px 0;">No interview records found for your account.</p>
     {% endif %}
 </div>
 
@@ -58,15 +58,15 @@
 <div class="card search-card" style="margin-top: 20px;">
     <h3>Admin File Report Search</h3>
     <p class="subtitle">Search generated Markdown (.md) reports on disk.</p>
-    <div class="search-box" style="display: flex; gap: 10px; margin-top: 10px;">
+    <div class="admin-search-box">
         <input type="text" id="searchInput" placeholder="Enter candidate name..." class="form-select" onkeyup="if(event.key === 'Enter') searchCandidate()">
         <button class="btn btn-teal" onclick="searchCandidate()">Search Files</button>
     </div>
-    <div id="searchResults" class="results-container" style="margin-top: 15px;"></div>
+    <div id="searchResults" class="results-container"></div>
 </div>
 
 <div id="reportContainer" class="card report-view hidden" style="margin-top: 20px;">
-    <div class="report-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="report-header-flex">
         <h3 id="reportTitle">Candidate Report</h3>
         <button onclick="closeReport()" class="btn btn-outline-danger">Close Report</button>
     </div>
@@ -106,7 +106,7 @@
                 let reportsHTML = cand.reports.length === 0 
                     ? "<p class='empty-msg'>No report file (.md) found.</p>"
                     : cand.reports.map(reportName => `
-                        <div class="report-row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <div class="report-item-row">
                             <span class="file-name">📄 ${reportName}</span>
                             <button class="btn btn-teal-sm" onclick="viewReport('${cand.folder_path}', '${reportName}')">View</button>
                         </div>
