@@ -1,66 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Interview Portal - Setup</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
 
-<nav class="navbar">
-    <a href="/" class="brand">Interview Portal</a>
-    <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li><a href="/interview_portal" class="active">Take Interview</a></li>
-        <li><a href="/results_checker">Check Results</a></li>
-    </ul>
-</nav>
+{% block title %}AI Interview Portal - Setup{% endblock %}
 
-<div class="main-container">
-    <div class="page-header">
-        <h1>Candidate Interview Setup</h1>
-        <p class="subtitle">Upload a candidate resume to generate technical interview questions.</p>
+{% block content %}
+<div class="page-header">
+    <h1>Candidate Interview Setup</h1>
+    <p class="subtitle">Upload a candidate resume to generate technical interview questions.</p>
+</div>
+
+<div class="card setup-card">
+    <!-- Step 1: Upload CV -->
+    <div id="step-upload">
+        <h3>Step 1: Upload Candidate CV</h3>
+        <form id="uploadForm" class="form-container">
+            <div class="file-upload-wrapper">
+                <label for="cv_file" class="file-dropzone">
+                    <span class="file-icon">📁</span>
+                    <span id="fileNameDisplay" class="file-text">Click or drag PDF resume here</span>
+                    <input type="file" id="cv_file" name="cv_file" accept=".pdf" required onchange="updateFileName(this)">
+                </label>
+            </div>
+            <button type="submit" class="btn btn-teal btn-lg">Parse CV</button>
+        </form>
     </div>
 
-    <div class="card setup-card">
-        <!-- Step 1: Upload CV -->
-        <div id="step-upload">
-            <h3>Step 1: Upload Candidate CV</h3>
-            <form id="uploadForm" class="form-container">
-                <div class="file-upload-wrapper">
-                    <label for="cv_file" class="file-dropzone">
-                        <span class="file-icon">📁</span>
-                        <span id="fileNameDisplay" class="file-text">Click or drag PDF resume here</span>
-                        <input type="file" id="cv_file" name="cv_file" accept=".pdf" required onchange="updateFileName(this)">
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-teal btn-lg">Parse CV</button>
-            </form>
-        </div>
-
-        <!-- Step 2: Select Language & Generate -->
-        <div id="step-questions" class="hidden">
-            <h3>Step 2: Generate Questions</h3>
-            <p class="candidate-info">Candidate: <strong id="candidateName"></strong></p>
-            
-            <div class="form-group">
-                <label for="language">Interview Language</label>
-                <div class="select-wrapper">
-                    <select id="language" class="custom-select">
-                        <option value="English">English</option>
-                        <option value="Vietnamese">Vietnamese (Tiếng Việt)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div style="text-align: center;">
-                <button id="btnGenerate" class="btn btn-teal btn-lg">Generate Questions & Start Interview</button>
+    <!-- Step 2: Select Language & Generate -->
+    <div id="step-questions" class="hidden">
+        <h3>Step 2: Generate Questions</h3>
+        <p class="candidate-info">Candidate: <strong id="candidateName"></strong></p>
+        
+        <div class="form-group">
+            <label for="language">Interview Language</label>
+            <div class="select-wrapper">
+                <select id="language" class="custom-select">
+                    <option value="English">English</option>
+                    <option value="Vietnamese">Vietnamese (Tiếng Việt)</option>
+                </select>
             </div>
         </div>
 
-        <div id="status" class="loading-state"></div>
+        <div style="text-align: center;">
+            <button id="btnGenerate" class="btn btn-teal btn-lg">Generate Questions & Start Interview</button>
+        </div>
     </div>
+
+    <div id="status" class="loading-state"></div>
 </div>
 
 <script>
@@ -124,6 +108,4 @@
         }
     };
 </script>
-
-</body>
-</html>
+{% endblock %}

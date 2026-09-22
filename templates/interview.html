@@ -1,69 +1,53 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Interview Session</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
 
-<nav class="navbar">
-    <a href="/" class="brand">Interview Portal</a>
-    <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li><a href="/interview_portal" class="active">Take Interview</a></li>
-        <li><a href="/results_checker">Check Results</a></li>
-    </ul>
-</nav>
+{% block title %}AI Interview Session{% endblock %}
 
-<div class="main-container">
-    <div class="card interview-card">
-        
-        <!-- Interview Mode Selector Banner -->
-        <div class="mode-banner">
-            <span class="mode-label">Interview Mode:</span>
-            <div class="mode-options">
-                <label for="modeVoice" class="radio-label">
-                    <input type="radio" id="modeVoice" name="interviewMode" value="voice" checked onchange="switchMode('voice')">
-                    🎤 Voice Mode
-                </label>
-                <label for="modeText" class="radio-label">
-                    <input type="radio" id="modeText" name="interviewMode" value="text" onchange="switchMode('text')">
-                    ⌨️ Text Mode
-                </label>
-            </div>
+{% block content %}
+<div class="card interview-card">
+    
+    <!-- Interview Mode Selector Banner -->
+    <div class="mode-banner">
+        <span class="mode-label">Interview Mode:</span>
+        <div class="mode-options">
+            <label for="modeVoice" class="radio-label">
+                <input type="radio" id="modeVoice" name="interviewMode" value="voice" checked onchange="switchMode('voice')">
+                🎤 Voice Mode
+            </label>
+            <label for="modeText" class="radio-label">
+                <input type="radio" id="modeText" name="interviewMode" value="text" onchange="switchMode('text')">
+                ⌨️ Text Mode
+            </label>
         </div>
-
-        <h2 class="session-title">Interview Session: {{ candidate or "Candidate" }}</h2>
-        <hr class="divider">
-        
-        <!-- Question Block -->
-        <div id="questionContainer">
-            <div class="badge-group">
-                <span id="qBadge" class="pill-badge"></span>
-                <span id="diffBadge" class="pill-badge"></span>
-            </div>
-            <h3 id="questionText" class="question-prompt">Loading question...</h3>
-            <button id="btnReplay" class="btn btn-blue-sm">🔊 Read Question Aloud</button>
-        </div>
-
-        <!-- Answer Block -->
-        <div class="answer-section">
-            <label for="answerInput" class="input-label">Your Answer:</label>
-            <textarea id="answerInput" class="custom-textarea" rows="4" placeholder="Type your answer or use voice recording..."></textarea>
-            
-            <div class="controls-bar">
-                <div class="btn-group">
-                    <button id="btnRecord" class="btn btn-orange">🎤 Start Recording</button>
-                    <button id="btnSubmit" class="btn btn-emerald">Submit Answer</button>
-                </div>
-                <span id="recordingStatus" class="loading-state"></span>
-            </div>
-        </div>
-
-        <div id="status" class="loading-state"></div>
     </div>
+
+    <h2 class="session-title">Interview Session: {{ candidate or "Candidate" }}</h2>
+    <hr class="divider">
+    
+    <!-- Question Block -->
+    <div id="questionContainer">
+        <div class="badge-group">
+            <span id="qBadge" class="pill-badge"></span>
+            <span id="diffBadge" class="pill-badge"></span>
+        </div>
+        <h3 id="questionText" class="question-prompt">Loading question...</h3>
+        <button id="btnReplay" class="btn btn-blue-sm">🔊 Read Question Aloud</button>
+    </div>
+
+    <!-- Answer Block -->
+    <div class="answer-section">
+        <label for="answerInput" class="input-label">Your Answer:</label>
+        <textarea id="answerInput" class="custom-textarea" rows="4" placeholder="Type your answer or use voice recording..."></textarea>
+        
+        <div class="controls-bar">
+            <div class="btn-group">
+                <button id="btnRecord" class="btn btn-orange">🎤 Start Recording</button>
+                <button id="btnSubmit" class="btn btn-emerald">Submit Answer</button>
+            </div>
+            <span id="recordingStatus" class="loading-state"></span>
+        </div>
+    </div>
+
+    <div id="status" class="loading-state"></div>
 </div>
 
 <script>
@@ -81,7 +65,6 @@
     let audioChunks = [];
     let isRecording = false;
     
-    // Custom audio player instance for Sherpa-ONNX WAVs
     let currentAudioPlayer = null;
     const synth = window.speechSynthesis;
 
@@ -108,14 +91,9 @@
         }
     }
 
-    /**
-     * Synthesizes audio via Sherpa-ONNX (/api/tts) first; falls back to Web Speech API if unhandled.
-     */
     async function speakQuestion(text, onEndCallback = null) {
         if (!text || !text.trim()) return;
         stopAllSpeech();
-
-        console.log("[TTS] Requesting Sherpa-ONNX TTS generation...");
 
         try {
             const response = await fetch('/api/tts', {
@@ -127,7 +105,6 @@
             const data = await response.json();
 
             if (data.status === "success" && data.audio_data) {
-                console.log("[TTS] Sherpa-ONNX base64 audio received. Playing...");
                 currentAudioPlayer = new Audio(data.audio_data);
 
                 currentAudioPlayer.onended = () => {
@@ -140,7 +117,6 @@
                 return;
             }
 
-            console.warn("[TTS Fallback] Sherpa-ONNX failed or unavailable, falling back to Web Speech API.");
             triggerBrowserTTS(text, onEndCallback);
 
         } catch (err) {
@@ -234,9 +210,7 @@
     async function sendAudioToWhisper(audioBlob) {
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.webm");
-        // Ensure the template variable 'language' (e.g., 'Vietnamese' or 'English') is sent
         formData.append("language", language);
-        // Give the LLM cleanup pass context on what's being answered
         const questionForContext = isFollowUp
             ? document.getElementById("questionText").innerText
             : (currentQuestionObj ? currentQuestionObj.question : "");
@@ -296,7 +270,6 @@
             return;
         }
         
-        // Ask for confirmation before proceeding
         const isConfirmed = confirm("Are you sure you want to submit this answer?");
         if (!isConfirmed) {
             return;
@@ -382,6 +355,4 @@
 
     renderQuestion();
 </script>
-
-</body>
-</html>
+{% endblock %}

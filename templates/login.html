@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Login - AI Interview Portal{% endblock %}
+
+{% block content %}
+<div class="card login-card">
+    <h2>Portal Login</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} login-alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group" style="margin-bottom: 18px;">
+            <label for="username" class="login-label">Username</label>
+            <input type="text" id="username" name="username" required class="login-form-control" placeholder="Enter username" autocomplete="username">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 22px;">
+            <label for="password" class="login-label">Password</label>
+            <input type="password" id="password" name="password" required class="login-form-control" placeholder="Enter password" autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-teal login-btn">Sign In</button>
+    </form>
+</div>
+{% endblock %}

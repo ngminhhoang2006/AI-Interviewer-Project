@@ -1,45 +1,77 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interviewee Report Checker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
 
-<nav class="navbar">
-    <a href="/" class="brand">Interview Portal</a>
-    <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li><a href="/interview_portal">Take Interview</a></li>
-        <li><a href="/results_checker" class="active">Check Results</a></li>
-    </ul>
-</nav>
+{% block title %}Interviewee Report Checker - AI Interview Portal{% endblock %}
 
-<div class="main-container">
-    <div class="page-header">
-        <h1>🔍 Interviewee Report Checker</h1>
-        <p class="subtitle">Search for candidate records and review completed grading evaluations.</p>
+{% block content %}
+<div class="page-header">
+    <h1>🔍 Interviewee Report Checker</h1>
+    <p class="subtitle">
+        Logged in as <strong>{{ current_user.username }}</strong> 
+        <span class="badge" style="background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">
+            {{ 'Admin' if is_admin else 'Candidate' }}
+        </span>
+    </p>
+</div>
+
+<div class="card">
+    <h3>Your Interview Records</h3>
+    <hr class="divider">
+
+    {% if results %}
+    <table class="table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+            <tr style="background-color: #f1f5f9; text-align: left; height: 40px;">
+                {% if is_admin %}
+                <th style="padding: 8px;">User ID</th>
+                {% endif %}
+                <th style="padding: 8px;">Candidate Name</th>
+                <th style="padding: 8px;">Language</th>
+                <th style="padding: 8px;">CV Score</th>
+                <th style="padding: 8px;">Interview Score</th>
+                <th style="padding: 8px;">Feedback</th>
+                <th style="padding: 8px;">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in results %}
+            <tr style="border-bottom: 1px solid #e2e8f0; height: 45px;">
+                {% if is_admin %}
+                <td style="padding: 8px;">{{ r.user_id }}</td>
+                {% endif %}
+                <td style="padding: 8px;"><strong>{{ r.candidate_name }}</strong></td>
+                <td style="padding: 8px;">{{ r.language }}</td>
+                <td style="padding: 8px;">{{ r.cv_score if r.cv_score else 'N/A' }}</td>
+                <td style="padding: 8px;">{{ r.interview_score if r.interview_score else 'N/A' }}</td>
+                <td style="padding: 8px;">{{ r.feedback_reason }}</td>
+                <td style="padding: 8px;">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-msg" style="padding: 20px 0; color: #64748b;">No interview records found for your account.</p>
+    {% endif %}
+</div>
+
+{% if is_admin %}
+<!-- File-Based Folder Search Section (Visible Only to Admin) -->
+<div class="card search-card" style="margin-top: 20px;">
+    <h3>Admin File Report Search</h3>
+    <p class="subtitle">Search generated Markdown (.md) reports on disk.</p>
+    <div class="search-box" style="display: flex; gap: 10px; margin-top: 10px;">
+        <input type="text" id="searchInput" placeholder="Enter candidate name..." class="form-select" onkeyup="if(event.key === 'Enter') searchCandidate()">
+        <button class="btn btn-teal" onclick="searchCandidate()">Search Files</button>
     </div>
+    <div id="searchResults" class="results-container" style="margin-top: 15px;"></div>
+</div>
 
-    <div class="card search-card">
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Enter candidate name (e.g., Nguyen Minh Hoang)..." onkeyup="if(event.key === 'Enter') searchCandidate()">
-            <button class="btn btn-teal" onclick="searchCandidate()">Search</button>
-        </div>
-
-        <div id="searchResults" class="results-container"></div>
+<div id="reportContainer" class="card report-view hidden" style="margin-top: 20px;">
+    <div class="report-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 id="reportTitle">Candidate Report</h3>
+        <button onclick="closeReport()" class="btn btn-outline-danger">Close Report</button>
     </div>
-
-    <div id="reportContainer" class="card report-view hidden">
-        <div class="report-header">
-            <h3 id="reportTitle">Candidate Report</h3>
-            <button onclick="closeReport()" class="btn btn-outline-danger">Close Report</button>
-        </div>
-        <hr class="divider">
-        <div id="reportContent"></div>
-    </div>
+    <hr class="divider">
+    <div id="reportContent"></div>
 </div>
 
 <script>
@@ -48,12 +80,9 @@
         const resultsDiv = document.getElementById("searchResults");
         const reportDiv = document.getElementById("reportContainer");
 
-        if (!query) {
-            alert("Please enter a candidate name.");
-            return;
-        }
+        if (!query) return alert("Please enter a candidate name.");
 
-        resultsDiv.innerHTML = "<div class='loading-state'>Searching database...</div>";
+        resultsDiv.innerHTML = "Searching disk records...";
         reportDiv.classList.add("hidden");
 
         try {
@@ -74,25 +103,16 @@
             data.candidates.forEach(cand => {
                 const card = document.createElement("div");
                 card.className = "candidate-item";
+                let reportsHTML = cand.reports.length === 0 
+                    ? "<p class='empty-msg'>No report file (.md) found.</p>"
+                    : cand.reports.map(reportName => `
+                        <div class="report-row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span class="file-name">📄 ${reportName}</span>
+                            <button class="btn btn-teal-sm" onclick="viewReport('${cand.folder_path}', '${reportName}')">View</button>
+                        </div>
+                    `).join('');
 
-                let reportsHTML = "";
-                if (cand.reports.length === 0) {
-                    reportsHTML = "<p class='empty-msg'>No report file (.md) found for this candidate.</p>";
-                } else {
-                    cand.reports.forEach(reportName => {
-                        reportsHTML += `
-                            <div class="report-row">
-                                <span class="file-name">📄 ${reportName}</span>
-                                <button class="btn btn-teal-sm" onclick="viewReport('${cand.folder_path}', '${reportName}')">View Report</button>
-                            </div>
-                        `;
-                    });
-                }
-
-                card.innerHTML = `
-                    <h4>Candidate Folder: <strong>${cand.folder_name}</strong></h4>
-                    ${reportsHTML}
-                `;
+                card.innerHTML = `<h4>Candidate Folder: <strong>${cand.folder_name}</strong></h4>${reportsHTML}`;
                 resultsDiv.appendChild(card);
             });
         } catch (err) {
@@ -106,26 +126,17 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ folder_path: folderPath, report_filename: reportFilename })
         });
-
         const data = await res.json();
-
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
+        if (data.error) return alert(data.error);
 
         document.getElementById("reportTitle").innerText = `Report: ${data.candidate}`;
         document.getElementById("reportContent").innerHTML = data.content_html;
-        
-        const reportDiv = document.getElementById("reportContainer");
-        reportDiv.classList.remove("hidden");
-        reportDiv.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById("reportContainer").classList.remove("hidden");
     }
 
     function closeReport() {
         document.getElementById("reportContainer").classList.add("hidden");
     }
 </script>
-
-</body>
-</html>
+{% endif %}
+{% endblock %}

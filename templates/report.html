@@ -1,55 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interview Report</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
 
-<nav class="navbar">
-    <a href="/" class="brand">Interview Portal</a>
-    <ul class="nav-links">
-        <li><a href="/">Home</a></li>
-        <li><a href="/interview_portal">Take Interview</a></li>
-        <li><a href="/results_checker">Check Results</a></li>
-    </ul>
-</nav>
+{% block title %}Interview Evaluation Report{% endblock %}
 
-<div class="main-container">
-    <div class="card">
-        <h1>Interview Evaluation Report</h1>
-        <h2>Candidate: {{ report.candidate }}</h2>
-        <p><strong>Job Title:</strong> {{ report.job_title }} | <strong>Model:</strong> {{ report.model_used }}</p>
+{% block content %}
+<div class="card">
+    <h1>Interview Evaluation Report</h1>
+    <h2>Candidate: {{ report.candidate }}</h2>
+    <p><strong>Job Title:</strong> {{ report.job_title }} | <strong>Model:</strong> {{ report.model_used }}</p>
 
-        <div class="score-box">
-            <h3>Overall Recommendation: 
-                <span class="tag {{ 'hire' if 'Hire' in report.overall.recommendation else 'nohire' }}">
-                    {{ report.overall.recommendation }}
-                </span>
-            </h3>
-            <p><strong>Overall Score:</strong> {{ report.overall.overall_score }}/10</p>
-            <p><strong>Average Answer Score:</strong> {{ report.average_score }}/10</p>
-            <p><strong>Summary:</strong> {{ report.overall.summary }}</p>
-        </div>
-
-        <h2>Per-Question Breakdown</h2>
-        {% for item in report.per_question %}
-        <div class="q-card">
-            <h4>Q{{ item.question_number }}: {{ item.question }}</h4>
-            <p><strong>Answer:</strong> {{ item.answer }}</p>
-            <hr class="divider">
-            <p><strong>Score:</strong> {{ item.score }}/10</p>
-            <p><strong>Strengths:</strong> {{ item.strengths }}</p>
-            <p><strong>Concerns:</strong> {{ item.concerns }}</p>
-            <p><strong>Comment:</strong> {{ item.comment }}</p>
-        </div>
-        {% endfor %}
-
-        <a href="/" class="btn btn-teal back-link">Back to Home</a>
+    <div class="score-box">
+        <h3>Overall Recommendation: 
+            <span class="tag {{ 'hire' if 'Hire' in report.overall.recommendation else 'nohire' }}">
+                {{ report.overall.recommendation }}
+            </span>
+        </h3>
+        <p><strong>Overall Score:</strong> {{ report.overall.overall_score }}/10</p>
+        <p><strong>Average Answer Score:</strong> {{ report.average_score }}/10</p>
+        <p><strong>Summary:</strong> {{ report.overall.summary }}</p>
     </div>
-</div>
 
-</body>
-</html>
+    <h2>Per-Question Breakdown</h2>
+    {% for item in report.per_question %}
+    <div class="q-card">
+        <h4>Q{{ item.question_number }}: {{ item.question }}</h4>
+        <p><strong>Answer:</strong> {{ item.answer }}</p>
+        <hr class="divider">
+        <p><strong>Score:</strong> {{ item.score }}/10</p>
+        <p><strong>Strengths:</strong> {{ item.strengths }}</p>
+        <p><strong>Concerns:</strong> {{ item.concerns }}</p>
+        <p><strong>Comment:</strong> {{ item.comment }}</p>
+    </div>
+    {% endfor %}
+
+    <a href="/" class="btn btn-teal back-link">Back to Home</a>
+</div>
+{% endblock %}
