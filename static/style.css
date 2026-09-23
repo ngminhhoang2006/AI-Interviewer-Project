@@ -730,6 +730,10 @@ button.btn-teal-sm:hover {
     color: #991b1b;
     border: 1px solid #f87171;
     font-size: 14px;
+    
+    /* Add these properties to force long URLs to wrap */
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 
 /* ==========================================================================
