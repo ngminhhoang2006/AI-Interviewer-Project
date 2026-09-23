@@ -1,38 +1,46 @@
 {% extends "base.html" %}
 
-{% block title %}Login - AI Interview Portal{% endblock %}
+{% block title %}Log In - AI Interview Portal{% endblock %}
 
 {% block content %}
 <div class="card login-card">
-    <h2>Portal Login</h2>
+    <div class="page-header" style="margin-bottom: 24px;">
+        <h2>Welcome Back</h2>
+        <p class="subtitle" style="font-size: 0.9rem;">Please enter your credentials to log in.</p>
+    </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} login-alert">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} login-alert">
+            {{ message|safe }}
+          </div>
+        {% endfor %}
+      {% endif %}
     {% endwith %}
 
     <form method="POST" action="{{ url_for('login') }}">
         <div class="form-group" style="margin-bottom: 18px;">
-            <label for="username" class="login-label">Username</label>
-            <input type="text" id="username" name="username" required class="login-form-control" placeholder="Enter username" autocomplete="username">
+            <label for="username" class="login-label">Username or Email</label>
+            <input type="text" id="username" name="username" required placeholder="Enter your username or email" class="login-form-control" autocomplete="username">
         </div>
 
         <div class="form-group" style="margin-bottom: 22px;">
-            <label for="password" class="login-label">Password</label>
-            <input type="password" id="password" name="password" required class="login-form-control" placeholder="Enter password" autocomplete="current-password">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label for="password" class="login-label" style="margin-bottom: 0;">Password</label>
+                <a href="{{ url_for('forgot_password') }}" style="font-size: 0.8rem; color: #0d9488; text-decoration: none; font-weight: 600;">
+                    Forgot Password?
+                </a>
+            </div>
+            <input type="password" id="password" name="password" required placeholder="••••••••" class="login-form-control" autocomplete="current-password">
         </div>
 
-        <button type="submit" class="btn btn-teal login-btn">Sign In</button>
+        <button type="submit" class="btn btn-teal login-btn">Log In</button>
     </form>
 
-    <div style="margin-top: 18px; text-align: center; font-size: 0.95rem;">
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 0.9rem; color: #64748b;">
         <span>Don't have an account? </span>
-        <a href="{{ url_for('signup') }}" style="color: #008080; text-decoration: none; font-weight: 600;">Sign Up</a>
+        <a href="{{ url_for('signup') }}" style="color: #0d9488; text-decoration: none; font-weight: 600;">Sign Up</a>
     </div>
 </div>
 {% endblock %}

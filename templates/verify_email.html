@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Email - AI Interview Portal{% endblock %}
+
+{% block content %}
+<div class="card login-card">
+    <h2>Email Verification</h2>
+    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+        We've sent a 6-digit verification code to <strong>{{ email }}</strong>.
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} login-alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('verify_email') }}">
+        <div class="form-group" style="margin-bottom: 22px;">
+            <label for="code" class="login-label">Enter 6-Digit Code</label>
+            <input type="text" id="code" name="code" maxlength="6" pattern="\d{6}" required class="login-form-control" placeholder="123456" autocomplete="one-time-code" style="letter-spacing: 4px; text-align: center; font-size: 1.2rem; font-weight: bold;">
+        </div>
+
+        <button type="submit" class="btn btn-teal login-btn">Verify & Complete Sign Up</button>
+    </form>
+
+    <form method="POST" action="{{ url_for('resend_code') }}" style="margin-top: 15px; text-align: center;">
+        <button type="submit" style="background: none; border: none; color: #008080; cursor: pointer; font-size: 0.9rem; text-decoration: underline;">
+            Didn't receive code? Resend
+        </button>
+    </form>
+</div>
+{% endblock %}
