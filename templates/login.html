@@ -29,5 +29,10 @@
 
         <button type="submit" class="btn btn-teal login-btn">Sign In</button>
     </form>
+
+    <div style="margin-top: 18px; text-align: center; font-size: 0.95rem;">
+        <span>Don't have an account? </span>
+        <a href="{{ url_for('signup') }}" style="color: #008080; text-decoration: none; font-weight: 600;">Sign Up</a>
+    </div>
 </div>
 {% endblock %}

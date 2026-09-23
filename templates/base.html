@@ -20,7 +20,8 @@
             {% if current_user.is_authenticated %}
                 <li><a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a></li>
             {% else %}
-                <li><a href="{{ url_for('login') }}">Login</a></li>
+                <li><a href="{{ url_for('login') }}" class="{% if request.path == '/login' %}active{% endif %}">Login</a></li>
+                <li><a href="{{ url_for('signup') }}" class="{% if request.path == '/signup' %}active{% endif %}">Sign Up</a></li>
             {% endif %}
         </ul>
     </nav>

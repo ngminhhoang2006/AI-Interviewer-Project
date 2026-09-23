@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - AI Interview Portal{% endblock %}
+
+{% block content %}
+<div class="card login-card">
+    <h2>Create Account</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} login-alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('signup') }}">
+        <div class="form-group" style="margin-bottom: 18px;">
+            <label for="username" class="login-label">Username</label>
+            <input type="text" id="username" name="username" required class="login-form-control" placeholder="Choose a username" autocomplete="username">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 18px;">
+            <label for="email" class="login-label">Email Address</label>
+            <input type="email" id="email" name="email" required class="login-form-control" placeholder="name@example.com" autocomplete="email">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 18px;">
+            <label for="password" class="login-label">Password</label>
+            <input type="password" id="password" name="password" required class="login-form-control" placeholder="Create a password" autocomplete="new-password">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 22px;">
+            <label for="confirm_password" class="login-label">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" required class="login-form-control" placeholder="Re-enter password" autocomplete="new-password">
+        </div>
+
+        <button type="submit" class="btn btn-teal login-btn">Sign Up</button>
+    </form>
+
+    <div style="margin-top: 18px; text-align: center; font-size: 0.95rem;">
+        <span>Already have an account? </span>
+        <a href="{{ url_for('login') }}" style="color: #008080; text-decoration: none; font-weight: 600;">Sign In</a>
+    </div>
+</div>
+{% endblock %}
