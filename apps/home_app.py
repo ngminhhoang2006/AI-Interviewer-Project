@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+import os
 import sys
 import random
 import time
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from models import db, User, InterviewResult
 
@@ -29,10 +31,27 @@ db_dir = PROJECT_ROOT / "database"
 db_dir.mkdir(parents=True, exist_ok=True)
 
 # App Configuration
-app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_dir / 'interview_portal.db'}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# ----------------------------------------------------------------------
+# Flask-Mail Configuration (SMTP)
+# Make sure to run these 2 commands first in shell for testing:
+# export MAIL_USERNAME="hoangdeptrai61@gmail.com"
+# export MAIL_PASSWORD="rxnj ferp zrig khha"
+# ----------------------------------------------------------------------
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() in ['true', '1', 't']
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'your_email@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'your_app_password')
+app.config['MAIL_DEFAULT_SENDER'] = (
+    os.environ.get('MAIL_SENDER_NAME', 'AI Interview Portal'),
+    app.config['MAIL_USERNAME']
+)
+
+mail = Mail(app)
 db.init_app(app)
 
 login_manager = LoginManager()
@@ -53,6 +72,56 @@ with app.app_context():
         admin.set_password('PennyPolendina69420!')
         db.session.add(admin)
         db.session.commit()
+
+# ----------------------------------------------------------------------
+# Email Helper Functions
+# ----------------------------------------------------------------------
+def send_verification_email(recipient_email, code):
+    """Sends a 6-digit OTP code to the recipient's email address."""
+    try:
+        msg = Message(
+            subject="Your AI Interview Portal Verification Code",
+            recipients=[recipient_email]
+        )
+        msg.body = (
+            f"Hello,\n\n"
+            f"Your 6-digit email verification code is: {code}\n\n"
+            f"This code will expire in 10 minutes.\n\n"
+            f"If you did not request this, please ignore this email."
+        )
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending verification email: {e}")
+        return False
+
+
+def send_password_reset_email(recipient_email, reset_url):
+    """Sends a password reset hyperlink to the user's email address."""
+    try:
+        msg = Message(
+            subject="Password Reset Request - AI Interview Portal",
+            recipients=[recipient_email]
+        )
+        msg.body = (
+            f"Hello,\n\n"
+            f"We received a request to reset your password. Please click the link below to set a new password:\n\n"
+            f"{reset_url}\n\n"
+            f"This link will expire in 1 hour.\n\n"
+            f"If you did not request a password reset, please ignore this email."
+        )
+        msg.html = (
+            f"<p>Hello,</p>"
+            f"<p>We received a request to reset your password. Click the link below to set a new password:</p>"
+            f"<p><a href='{reset_url}' style='color: #0d9488; font-weight: bold;'>Reset Your Password</a></p>"
+            f"<p>This link will expire in 1 hour.</p>"
+            f"<p>If you did not request a password reset, please ignore this email.</p>"
+        )
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending password reset email: {e}")
+        return False
 
 # ----------------------------------------------------------------------
 # Authentication Routes
@@ -111,8 +180,13 @@ def signup():
             'expires_at': time.time() + 600  # 10 minutes
         }
 
-        # For development / testing: flash the code on screen
-        flash(f'Verification code sent to {email}! [TESTING CODE: {verification_code}]', 'info')
+        # Send actual email
+        sent = send_verification_email(email, verification_code)
+        if sent:
+            flash(f'Verification code sent to {email}!', 'success')
+        else:
+            flash(f'Verification code could not be sent. Please check SMTP settings.', 'danger')
+
         return redirect(url_for('verify_email'))
 
     return render_template('signup.html')
@@ -162,7 +236,12 @@ def resend_code():
     pending_user['expires_at'] = time.time() + 600
     session['pending_user'] = pending_user
 
-    flash(f'New verification code generated! [TESTING CODE: {new_code}]', 'info')
+    sent = send_verification_email(pending_user['email'], new_code)
+    if sent:
+        flash(f'A new verification code has been sent to {pending_user["email"]}!', 'info')
+    else:
+        flash('Failed to resend code. Please verify server SMTP configuration.', 'danger')
+
     return redirect(url_for('verify_email'))
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
@@ -174,14 +253,15 @@ def forgot_password():
         if user:
             token = serializer.dumps(user.email, salt='password-reset-salt')
             reset_url = url_for('reset_password', token=token, _external=True)
+            sent = send_password_reset_email(user.email, reset_url)
             
-            # Flashes a clean, clickable hyperlink
-            flash(
-                f'A reset link was generated: <a href="{reset_url}" style="color: #0d9488; font-weight: bold; text-decoration: underline;">Click Here to Reset Password</a>', 
-                'info'
-            )
+            if sent:
+                flash(f'A password reset link has been sent to {email}.', 'info')
+            else:
+                flash('Could not send reset email. Please try again later or check SMTP settings.', 'danger')
         else:
-            flash('If an account exists with that email, a password reset link has been generated.', 'info')
+            # Protect user privacy by returning generic success message
+            flash('If an account exists with that email, a password reset link has been sent.', 'info')
 
         return redirect(url_for('login'))
 
