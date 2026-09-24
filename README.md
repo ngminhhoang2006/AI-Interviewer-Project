@@ -1,7 +1,7 @@
 # AI-Interviewer-Project
 This is an end-to-end, fully automated website designed to streamline the technical interview process using AI. The website uses python files (including Flask web apps) to perform the different tasks needed to perform the interview of an interviewee, as well as HTML, CSS and Javascript to build the format of the website.
 
-<img width="1873" height="915" alt="image" src="https://github.com/user-attachments/assets/93033953-5533-4bf7-a78e-6dcc04780bb6" />
+<img width="1857" height="919" alt="image" src="https://github.com/user-attachments/assets/e13e4c5b-54e6-4e99-b518-dd3d9daaa45c" />
 
 
 ## The Full Interview Process
