@@ -33,6 +33,12 @@ The website also allows applicants to make their own accounts to get their own p
 <img width="1003" height="596" alt="image" src="https://github.com/user-attachments/assets/0be3148a-ac4c-4cd8-bfec-dcd550f2d8a2" />
 
 ## Other features
+**Personal accounts**  
+  The interviewees can create their personal accounts that store their interview results privately and securely. This makes sure that all of their personal info won't be seen by potential malicious actors.
+
+<img width="536" height="724" alt="image" src="https://github.com/user-attachments/assets/b46f536c-0770-45a9-aed8-e546c827636c" />
+
+
 **Microphone testing**  
   Before the interview, applicants can test their microphones on a separate page to make sure their interviews goes smoothly.
 
