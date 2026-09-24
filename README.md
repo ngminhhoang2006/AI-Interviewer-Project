@@ -32,7 +32,8 @@ The website also allows applicants to make their own accounts to get their own p
 
 <img width="1003" height="596" alt="image" src="https://github.com/user-attachments/assets/0be3148a-ac4c-4cd8-bfec-dcd550f2d8a2" />
 
-**STEP 5 (OPTIONAL):  — Check an interviewee's results**  
+## Other features
+**Check an interviewee's results**  
   Use the checker page to see the reports of an interviewee's interview session. The reports include a score, and comments on the answers.
 
 <img width="994" height="470" alt="image" src="https://github.com/user-attachments/assets/6cbf4520-1ee8-4262-ba59-e22a55101f43" />
