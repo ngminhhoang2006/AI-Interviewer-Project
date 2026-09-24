@@ -33,6 +33,12 @@ The website also allows applicants to make their own accounts to get their own p
 <img width="1003" height="596" alt="image" src="https://github.com/user-attachments/assets/0be3148a-ac4c-4cd8-bfec-dcd550f2d8a2" />
 
 ## Other features
+**Microphone testing**  
+  Before the interview, applicants can test their microphones on a separate page to make sure their interviews goes smoothly.
+
+<img width="884" height="900" alt="image" src="https://github.com/user-attachments/assets/9b092519-197d-486d-9601-3506ce05b962" />
+
+
 **Check an interviewee's results**  
   Use the checker page to see the reports of an interviewee's interview session. The reports include a score, and comments on the answers.
 
