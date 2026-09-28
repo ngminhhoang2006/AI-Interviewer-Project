@@ -1,0 +1,35 @@
+#Please install the following pip libraries and their external apps if available.
+
+ollama (qwen3:8b)
+sherpa_onnx
+noisereduce
+webrtcvad
+sounddevice
+flask
+flask_mail
+flask_login
+flask_sqlalchemy
+re
+unicodedata
+pathlib
+sys
+sqlite3
+markdown
+os
+random
+time
+itsdangerous
+base64
+json
+shutil
+subprocess
+sqlalchemy
+numpy
+werkzeug.security
+datetime
+collections
+threading
+io
+wave
+pymupdf
+argparse
