@@ -25,6 +25,12 @@ command -v python3 >/dev/null || missing+=(python3)
 python3 -c "import venv, ensurepip" 2>/dev/null || missing+=(python3-venv)
 command -v ffmpeg  >/dev/null || missing+=(ffmpeg)
 command -v curl    >/dev/null || missing+=(curl)
+if command -v dpkg >/dev/null; then
+    # libportaudio2 -> sounddevice; build-essential/python3-dev -> webrtcvad compiles from source
+    for p in libportaudio2 build-essential python3-dev; do
+        dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p")
+    done
+fi
 
 if [ ${#missing[@]} -gt 0 ]; then
     echo "Missing packages: ${missing[*]}"
@@ -59,16 +65,58 @@ python3 -m venv "$INSTALL_DIR/.venv"
 PIP="$INSTALL_DIR/.venv/bin/pip"
 "$PIP" install --upgrade pip
 
-if [ -f "$INSTALL_DIR/requirements.txt" ]; then
-    "$PIP" install -r "$INSTALL_DIR/requirements.txt"
+REQ_SRC="$INSTALL_DIR/requirements.txt"
+REQ_CLEAN="$INSTALL_DIR/.requirements.clean.txt"
+MODEL_FILE="$INSTALL_DIR/.ollama_models.txt"
+
+if [ -f "$REQ_SRC" ]; then
+    # The repo's requirements.txt lists standard-library modules and notes like
+    # "ollama (qwen3:8b)", which pip rejects. Clean it up before installing.
+    python3 - "$REQ_SRC" "$REQ_CLEAN" "$MODEL_FILE" <<'PY'
+import re, sys
+src, dst, model_file = sys.argv[1:4]
+std = set(getattr(sys, "stdlib_module_names", ())) | {
+    "re", "unicodedata", "pathlib", "sys", "sqlite3", "os", "random", "time", "base64",
+    "json", "shutil", "subprocess", "datetime", "collections", "threading", "io", "wave",
+    "argparse",
+}
+skip = {"werkzeug"}  # installed automatically with Flask
+pkgs, models = [], []
+for raw in open(src, encoding="utf-8"):
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        continue
+    m = re.match(r"^([A-Za-z0-9_.\-]+)\s*(.*)$", line)
+    if not m:
+        continue
+    name, rest = m.groups()
+    if name.split(".")[0] in std or name.split(".")[0] in skip:
+        continue
+    if rest.startswith("("):                      # e.g. "ollama (qwen3:8b)" -> a model note
+        note = rest.strip("() ")
+        if name == "ollama" and note:
+            models.append(note)
+        rest = ""
+    spec = (name + rest).strip()
+    if spec not in pkgs:
+        pkgs.append(spec)
+open(dst, "w").write("\n".join(pkgs) + "\n")
+open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
+PY
+    "$PIP" install -r "$REQ_CLEAN"
 else
-    echo "No requirements.txt in the repo; installing the web-app packages I can see."
-    "$PIP" install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy
-    echo
-    echo "WARNING: the modules in system/ (cv_reader, chatbot, grade_interview, ...) need more"
-    echo "         packages (sherpa-onnx, a PDF reader, the ollama client, etc.). Add them with:"
-    echo "           $PIP install <package>"
-    echo "         and consider committing a requirements.txt to your repo so this is automatic."
+    echo "No requirements.txt found; installing a minimal fallback set."
+    "$PIP" install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy \
+        ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy
+    : > "$MODEL_FILE"
+fi
+
+# Pull the Ollama model(s) named in requirements.txt (e.g. qwen3:8b)
+if command -v ollama >/dev/null && [ -s "$MODEL_FILE" ]; then
+    say "Pulling Ollama model(s)"
+    while read -r model; do
+        [ -n "$model" ] && { ollama pull "$model" || echo "Could not pull $model. Start Ollama, then run: ollama pull $model"; }
+    done < "$MODEL_FILE"
 fi
 
 # ---------------------------------------------------------------- config / secrets
