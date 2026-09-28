@@ -39,7 +39,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         </div>
                     `).join('');
 
-                card.innerHTML = `<h4>Candidate Folder: <strong>${cand.folder_name}</strong></h4>${reportsHTML}`;
+                card.innerHTML = `
+                    <h4>Candidate Folder: <strong>${cand.folder_name}</strong></h4>
+                    <p>CV Score: ${cand.cv_score} | Interview Score: ${cand.interview_score}</p>
+                    ${reportsHTML}
+                    `;
                 resultsDiv.appendChild(card);
             });
         } catch (err) {
