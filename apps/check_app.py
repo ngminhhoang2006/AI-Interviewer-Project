@@ -4,6 +4,7 @@ import unicodedata
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify
 import sys
+import sqlite3
 
 # Add project root and system folder to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +23,7 @@ app = Flask(
 )
 
 UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
+DB_PATH = PROJECT_ROOT / "database.db"
 
 
 def flatten_text(text: str) -> str:
@@ -59,6 +61,58 @@ def find_report_files(folder: Path) -> list[Path]:
 def index():
     return render_template("checker.html")
 
+def get_candidate_scores(candidate_name: str):
+    """Fetch scores directly from SQLite interview_results table with text flattening."""
+    if not DB_PATH.exists():
+        return {"cv_score": "N/A", "interview_score": "N/A", "feedback": "", "date": ""}
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "SELECT candidate_name, cv_score, interview_score, feedback_reason, created_at FROM interview_results"
+        )
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+    
+    target_flat = flatten_text(candidate_name)
+    
+    for row in rows:
+        db_cand_name = row[0]
+        if target_flat and (target_flat in flatten_text(db_cand_name) or flatten_text(db_cand_name) in target_flat):
+            # SWAPPED: Overall score (row[2]) is now CV Score, Average per-q (row[1]) is Interview Score
+            return {
+                "cv_score": str(row[2]) if row[2] is not None else "N/A",
+                "interview_score": str(row[1]) if row[1] is not None else "N/A",
+                "feedback": row[3] or "",
+                "date": str(row[4]) if row[4] else ""
+            }
+            
+    return {"cv_score": "N/A", "interview_score": "N/A", "feedback": "", "date": ""}
+
+
+def extract_scores_from_md(report_path: Path):
+    if not report_path.exists():
+        return "N/A", "N/A"
+    
+    try:
+        content = report_path.read_text(encoding="utf-8")
+        
+        # Matches numbers before optional /10 even inside markdown bolding (**Overall score: 7/10**)
+        overall_match = re.search(r"Overall\s+score:\s*\*?\*?\s*([\d.]+)", content, re.IGNORECASE)
+        avg_match = re.search(r"Average\s+per-question\s+score:\s*\*?\*?\s*([\d.]+)", content, re.IGNORECASE)
+        
+        # Mapping per requirement:
+        cv_score = overall_match.group(1) if overall_match else "N/A"
+        interview_score = avg_match.group(1) if avg_match else "N/A"
+        
+        return cv_score, interview_score
+    except Exception as e:
+        print(f"Error reading report {report_path}: {e}")
+        return "N/A", "N/A"
+
 
 @app.route("/api/search", methods=["POST"])
 def search_candidate():
@@ -75,10 +129,32 @@ def search_candidate():
     results = []
     for f in folders:
         reports = find_report_files(f)
+        
+        cv_score = "N/A"
+        interview_score = "N/A"
+        
+        # 1. First attempt: Extract directly from the Markdown report file on disk
+        if reports:
+            cv_score, interview_score = extract_scores_from_md(reports[0])
+            
+        # 2. Fallback attempt: Query SQLite DB if report was missing or scores couldn't be parsed
+        if cv_score == "N/A" or interview_score == "N/A":
+            db_scores = get_candidate_scores(query)
+            if db_scores["cv_score"] == "N/A" and db_scores["interview_score"] == "N/A":
+                db_scores = get_candidate_scores(f.name)
+            
+            if cv_score == "N/A":
+                # In DB: interview_score holds 7.0 (Overall), cv_score holds 6.6 (Avg)
+                cv_score = db_scores["interview_score"]
+            if interview_score == "N/A":
+                interview_score = db_scores["cv_score"]
+
         results.append({
             "folder_name": f.name,
             "folder_path": str(f.relative_to(PROJECT_ROOT)),
-            "reports": [r.name for r in reports]
+            "reports": [r.name for r in reports],
+            "cv_score": cv_score,
+            "interview_score": interview_score
         })
 
     return jsonify({"candidates": results})

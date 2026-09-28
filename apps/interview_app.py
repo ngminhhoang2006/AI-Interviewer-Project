@@ -318,23 +318,39 @@ def report_page(candidate):
     # 2. SAVE TO DATABASE FOR CURRENT LOGGED-IN USER
     if current_user.is_authenticated:
         try:
-            # Safely extract scores and feedback from the generated report object/dict
-            overall_score = report.get("overall_score") or report.get("interview_score")
-            cv_score = report.get("cv_score")
+            # Extract scores from generated report dict
+            overall_score = report.get("overall_score")
+            avg_score = report.get("average_per_question_score") or report.get("avg_score")
+            
             feedback = report.get("summary") or report.get("overall_feedback") or "Completed interview evaluation."
             selected_language = data.get("interview_language", "English")
 
-            new_result = InterviewResult(
-                user_id=current_user.id,
-                candidate_name=candidate,
-                language=selected_language,
-                cv_score=cv_score,
-                interview_score=overall_score,
-                feedback_reason=str(feedback)
-            )
-            db.session.add(new_result)
+            # Check if record already exists for this user/candidate to update or create
+            existing_record = InterviewResult.query.filter_by(
+                user_id=current_user.id, 
+                candidate_name=candidate
+            ).first()
+
+            if existing_record:
+                # Update existing row
+                existing_record.cv_score = overall_score          # CV Score = Overall score
+                existing_record.interview_score = avg_score        # Interview Score = Average per-question score
+                existing_record.language = selected_language
+                existing_record.feedback_reason = str(feedback)
+            else:
+                # Insert new row
+                new_result = InterviewResult(
+                    user_id=current_user.id,
+                    candidate_name=candidate,
+                    language=selected_language,
+                    cv_score=overall_score,                        # CV Score = Overall score
+                    interview_score=avg_score,                     # Interview Score = Average per-question score
+                    feedback_reason=str(feedback)
+                )
+                db.session.add(new_result)
+
             db.session.commit()
-            print(f"[DB] Saved interview result to database for {current_user.username}")
+            print(f"[DB] Successfully saved interview result (CV: {overall_score}, Interview: {avg_score}) for {current_user.username}")
         except Exception as e:
             db.session.rollback()
             print(f"[DB Error] Could not save result to database: {e}")
