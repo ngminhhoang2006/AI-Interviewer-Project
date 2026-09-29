@@ -200,6 +200,15 @@ if command -v ollama >/dev/null && [ -s "$MODEL_FILE" ]; then
     done < "$MODEL_FILE"
 fi
 
+# ---------------------------------------------------------------- speech models
+say "Downloading speech models (about 1.2 GB the first time; already-installed ones are skipped)"
+MODEL_SCRIPT="$INSTALL_DIR/system/download_models.py"
+if [ -f "$MODEL_SCRIPT" ]; then
+    "$INSTALL_DIR/.venv/bin/python" "$MODEL_SCRIPT" || echo "Some speech models could not be downloaded. Re-run later with: $INSTALL_DIR/.venv/bin/python $MODEL_SCRIPT"
+else
+    echo "NOTE: system/download_models.py was not found in the project, so no speech models were installed."
+fi
+
 # ---------------------------------------------------------------- config / secrets
 say "Setting up config"
 if [ ! -f "$ENV_FILE" ]; then
