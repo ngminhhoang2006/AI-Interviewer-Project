@@ -1,9 +1,12 @@
 # AI Interviewer uninstaller for Windows.
 # Run via uninstall_windows.bat (double-click), or:
-#   powershell -ExecutionPolicy Bypass -File uninstall_windows.ps1 [-Dir "D:\Apps\ai-interviewer"]
+#   powershell -ExecutionPolicy Bypass -File uninstall_windows.ps1 [-Dir "D:\Apps\ai-interviewer"] [-NoPrompt [-Backup] [-DeleteConfig]]
 # -Dir is only needed if the install location can't be detected automatically.
 param(
-    [Alias('d')][string]$Dir = ''
+    [Alias('d')][string]$Dir = '',
+    [switch]$NoPrompt,      # never ask questions (used by the setup window)
+    [switch]$Backup,        # with -NoPrompt: back up uploads/database to Documents
+    [switch]$DeleteConfig   # with -NoPrompt: also delete the config folder
 )
 $ErrorActionPreference = 'Continue'
 
@@ -33,7 +36,7 @@ if ([string]::IsNullOrWhiteSpace($InstallDir) -and (Test-Path $Shortcut)) {
 if ([string]::IsNullOrWhiteSpace($InstallDir) -and (Test-Path $DefaultInstallDir)) {
     $InstallDir = $DefaultInstallDir
 }
-if ([string]::IsNullOrWhiteSpace($InstallDir) -or -not (Test-Path -LiteralPath $InstallDir)) {
+if (-not $NoPrompt -and ([string]::IsNullOrWhiteSpace($InstallDir) -or -not (Test-Path -LiteralPath $InstallDir))) {
     $InstallDir = Read-Host 'Could not find the install folder. Enter it (blank to skip)'
 }
 
@@ -60,7 +63,7 @@ if ($InstallDir -and (Test-Path -LiteralPath $InstallDir)) {
 
 Write-Host "This will remove $AppName from your PC."
 if ($RemoveDir) { Write-Host "Install folder: $InstallDir" }
-if (-not (Ask 'Continue?')) { Write-Host 'Cancelled.'; exit 0 }
+if (-not $NoPrompt -and -not (Ask 'Continue?')) { Write-Host 'Cancelled.'; exit 0 }
 
 Say 'Stopping server'
 if ($RemoveDir) {
@@ -76,7 +79,8 @@ if ($RemoveDir) {
     $db      = Join-Path $InstallDir 'database'
     if ((Test-Path $uploads) -or (Test-Path $db)) {
         Write-Host "`nFound user data (candidate uploads/reports and the accounts database)."
-        if (Ask 'Save a backup copy to your Documents folder before deleting?') {
+        $doBackup = if ($NoPrompt) { [bool]$Backup } else { Ask 'Save a backup copy to your Documents folder before deleting?' }
+        if ($doBackup) {
             $backup = Join-Path ([Environment]::GetFolderPath('MyDocuments')) ("$AppId-backup-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
             New-Item -ItemType Directory -Force -Path $backup | Out-Null
             if (Test-Path $uploads) { Copy-Item $uploads $backup -Recurse }
@@ -97,7 +101,8 @@ if ($RemoveDir) {
 Remove-Item $Profile -Recurse -Force -ErrorAction SilentlyContinue
 
 if (Test-Path $ConfigDir) {
-    if (Ask "Also delete config ($ConfigDir, contains SECRET_KEY and email settings)?") {
+    $doConfig = if ($NoPrompt) { [bool]$DeleteConfig } else { Ask "Also delete config ($ConfigDir, contains SECRET_KEY and email settings)?" }
+    if ($doConfig) {
         Remove-Item $ConfigDir -Recurse -Force
     } else {
         Remove-Item $PathFile -Force -ErrorAction SilentlyContinue   # stale once the install folder is gone
@@ -108,3 +113,4 @@ if (Test-Path $ConfigDir) {
 Say 'Uninstalled.'
 Write-Host 'Not removed (shared system tools): Git, Python, FFmpeg, Ollama and its models.'
 Write-Host 'To remove them: winget uninstall <name>   |   Ollama models: ollama list, then ollama rm <model>'
+exit 0

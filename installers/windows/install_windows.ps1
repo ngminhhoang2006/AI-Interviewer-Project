@@ -1,10 +1,12 @@
 # AI Interviewer installer for Windows 10/11.
 # Run via install_windows.bat (double-click), or:
-#   powershell -ExecutionPolicy Bypass -File install_windows.ps1 [-Dir "D:\Apps\ai-interviewer"]
+#   powershell -ExecutionPolicy Bypass -File install_windows.ps1 [-Dir "D:\Apps\ai-interviewer"] [-NoPrompt] [-SkipOllama]
 # If no folder is given you will be asked (press Enter for the default).
 # You can also set the AI_INTERVIEWER_DIR environment variable instead of passing -Dir.
 param(
-    [Alias('d')][string]$Dir = $env:AI_INTERVIEWER_DIR
+    [Alias('d')][string]$Dir = $env:AI_INTERVIEWER_DIR,
+    [switch]$NoPrompt,      # never ask questions (used by the setup window)
+    [switch]$SkipOllama     # don't install Ollama even if it is missing
 )
 $ErrorActionPreference = 'Stop'
 
@@ -25,7 +27,7 @@ function Has($c)  { [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 function Refresh-Path {
     $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
 }
-function Ask($q)  { $a = Read-Host "$q [Y/n]"; return ($a -eq '' -or $a -match '^[Yy]') }
+function Ask($q)  { if ($NoPrompt) { return $true }; $a = Read-Host "$q [Y/n]"; return ($a -eq '' -or $a -match '^[Yy]') }
 function Winget-Install($id) {
     winget install --id $id -e --silent --accept-package-agreements --accept-source-agreements
     Refresh-Path
@@ -33,7 +35,7 @@ function Winget-Install($id) {
 
 # ---------------------------------------------------------------- choose install folder
 if ([string]::IsNullOrWhiteSpace($Dir)) {
-    $Dir = Read-Host "Install location [$DefaultInstallDir]"
+    if (-not $NoPrompt) { $Dir = Read-Host "Install location [$DefaultInstallDir]" }
     if ([string]::IsNullOrWhiteSpace($Dir)) { $Dir = $DefaultInstallDir }
 }
 $Dir = $Dir.Trim().Trim('"')
@@ -78,7 +80,8 @@ if (-not (Has py))     { Say 'Installing Python 3.12'; Winget-Install 'Python.Py
 if (-not (Has ffmpeg)) { Say 'Installing FFmpeg';  Winget-Install 'Gyan.FFmpeg' }
 if (-not (Has ollama)) {
     Write-Host 'Ollama is needed for question generation and grading.'
-    if (Ask 'Install Ollama now?') { Say 'Installing Ollama'; Winget-Install 'Ollama.Ollama' }
+    if ($SkipOllama) { Write-Host 'Skipping. Install later from https://ollama.com' }
+    elseif (Ask 'Install Ollama now?') { Say 'Installing Ollama'; Winget-Install 'Ollama.Ollama' }
     else { Write-Host 'Skipping. Install later from https://ollama.com' }
 }
 foreach ($c in 'git','py') { if (-not (Has $c)) { throw "$c is still not on PATH. Close this window, open a new one, and re-run the installer." } }
@@ -102,7 +105,8 @@ Say 'Creating virtual environment'
 & py -3.12 -m venv (Join-Path $InstallDir '.venv') 2>$null
 if ($LASTEXITCODE -ne 0) { & py -3 -m venv (Join-Path $InstallDir '.venv') }
 if (-not (Test-Path $VenvPy)) { throw 'Could not create the virtual environment.' }
-& $VenvPy -m pip install --upgrade pip
+$PipOpts = @(); if ($NoPrompt) { $PipOpts = @('--progress-bar','off') }   # progress bars clutter the setup window log
+& $VenvPy -m pip install @PipOpts --upgrade pip
 
 $ReqSrc    = Join-Path $InstallDir 'requirements.txt'
 $ReqClean  = Join-Path $InstallDir '.requirements.clean.txt'
@@ -150,10 +154,10 @@ open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
     $filterPath = Join-Path $env:TEMP 'ai_interviewer_filter.py'
     Set-Content -Path $filterPath -Value $filter -Encoding UTF8
     & $VenvPy $filterPath $ReqSrc $ReqClean $ModelFile
-    & $VenvPy -m pip install -r $ReqClean
+    & $VenvPy -m pip install @PipOpts -r $ReqClean
 } else {
     Write-Host 'No requirements.txt found; installing a minimal fallback set.'
-    & $VenvPy -m pip install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad-wheels sounddevice pymupdf sqlalchemy requests
+    & $VenvPy -m pip install @PipOpts flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad-wheels sounddevice pymupdf sqlalchemy requests
     Set-Content -Path $ModelFile -Value 'qwen3:8b'
 }
 if ($LASTEXITCODE -ne 0) { throw 'pip install failed. See the messages above.' }
@@ -269,3 +273,4 @@ Write-Host "Installed in: $InstallDir"
 Write-Host "Logs:         $InstallDir\server.log  (errors: server.err.log)"
 Write-Host "Config:       $EnvFile"
 Write-Host 'Remove:       run uninstall_windows.bat'
+exit 0
