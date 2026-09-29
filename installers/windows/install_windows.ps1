@@ -1,18 +1,24 @@
 # AI Interviewer installer for Windows 10/11.
-# Run via install_windows.bat (double-click), or: powershell -ExecutionPolicy Bypass -File install_windows.ps1
+# Run via install_windows.bat (double-click), or:
+#   powershell -ExecutionPolicy Bypass -File install_windows.ps1 [-Dir "D:\Apps\ai-interviewer"]
+# If no folder is given you will be asked (press Enter for the default).
+# You can also set the AI_INTERVIEWER_DIR environment variable instead of passing -Dir.
+param(
+    [Alias('d')][string]$Dir = $env:AI_INTERVIEWER_DIR
+)
 $ErrorActionPreference = 'Stop'
 
 $AppName  = 'AI Interviewer'
 $AppId    = 'ai-interviewer'
 $RepoUrl  = 'https://github.com/ngminhhoang2006/AI-Interviewer-Project.git'
 $Port     = 5000
+$Marker   = '.ai-interviewer-install'
 
-$InstallDir = Join-Path $env:LOCALAPPDATA $AppId
+$DefaultInstallDir = Join-Path $env:LOCALAPPDATA $AppId
 $ConfigDir  = Join-Path $env:APPDATA $AppId
 $EnvFile    = Join-Path $ConfigDir 'env'
-$Launcher   = Join-Path $InstallDir 'launcher.ps1'
+$PathFile   = Join-Path $ConfigDir 'install_path'
 $StartMenu  = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
-$VenvPy     = Join-Path $InstallDir '.venv\Scripts\python.exe'
 
 function Say($m)  { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Has($c)  { [bool](Get-Command $c -ErrorAction SilentlyContinue) }
@@ -24,6 +30,43 @@ function Winget-Install($id) {
     winget install --id $id -e --silent --accept-package-agreements --accept-source-agreements
     Refresh-Path
 }
+
+# ---------------------------------------------------------------- choose install folder
+if ([string]::IsNullOrWhiteSpace($Dir)) {
+    $Dir = Read-Host "Install location [$DefaultInstallDir]"
+    if ([string]::IsNullOrWhiteSpace($Dir)) { $Dir = $DefaultInstallDir }
+}
+$Dir = $Dir.Trim().Trim('"')
+$Dir = [Environment]::ExpandEnvironmentVariables($Dir)               # %USERPROFILE%\apps ...
+if ($Dir -match '^~([\\/]|$)') { $Dir = $HOME + $Dir.Substring(1) }  # ~\apps
+# Absolute path (relative paths resolve against the current PowerShell folder)
+$Dir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Dir)
+
+$dirTrim = $Dir.TrimEnd('\','/')
+$root    = [IO.Path]::GetPathRoot($Dir).TrimEnd('\','/')
+if ($dirTrim -eq $root -or $dirTrim -eq $env:USERPROFILE.TrimEnd('\','/')) {
+    throw "Refusing to install directly into '$Dir'. Pick a dedicated folder."
+}
+$Dir = $dirTrim
+
+New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+
+# The uninstaller deletes this folder, so never adopt a folder that already holds
+# someone else's files: nest inside it instead.
+$InstallDir = $Dir
+$hasFiles = [bool](Get-ChildItem -LiteralPath $Dir -Force -ErrorAction SilentlyContinue | Select-Object -First 1)
+if ($hasFiles -and
+    -not (Test-Path -LiteralPath (Join-Path $Dir $Marker)) -and
+    -not (Test-Path -LiteralPath (Join-Path $Dir '.git'))) {
+    $InstallDir = Join-Path $Dir $AppId
+    Write-Host "'$Dir' is not empty, so the app will go in '$InstallDir' instead."
+}
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+
+$Launcher = Join-Path $InstallDir 'launcher.ps1'
+$VenvPy   = Join-Path $InstallDir '.venv\Scripts\python.exe'
+
+Say "Installing to $InstallDir"
 
 # ---------------------------------------------------------------- dependencies
 Say 'Checking dependencies'
@@ -48,6 +91,11 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
     git clone $RepoUrl $InstallDir
 }
 if ($LASTEXITCODE -ne 0) { throw 'git failed.' }
+New-Item -ItemType File -Force -Path (Join-Path $InstallDir $Marker) | Out-Null
+
+# Remember where we installed so uninstall_windows.ps1 can find it
+New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+Set-Content -Path $PathFile -Value $InstallDir -Encoding UTF8
 
 # ---------------------------------------------------------------- python venv
 Say 'Creating virtual environment'
@@ -74,6 +122,10 @@ skip = {"werkzeug"}
 pkgs, models = [], []
 for raw in open(src, encoding="utf-8"):
     line = raw.strip()
+    # Model named in a comment, e.g. "# ... with the model: ollama pull qwen3:8b"
+    pull = re.search(r"ollama\s+pull\s+([A-Za-z0-9_.:\-/]+)", line)
+    if pull and pull.group(1) not in models:
+        models.append(pull.group(1))
     if not line or line.startswith("#"):
         continue
     m = re.match(r"^([A-Za-z0-9_.\-]+)\s*(.*)$", line)
@@ -101,8 +153,8 @@ open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
     & $VenvPy -m pip install -r $ReqClean
 } else {
     Write-Host 'No requirements.txt found; installing a minimal fallback set.'
-    & $VenvPy -m pip install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad-wheels sounddevice pymupdf sqlalchemy
-    Set-Content -Path $ModelFile -Value ''
+    & $VenvPy -m pip install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad-wheels sounddevice pymupdf sqlalchemy requests
+    Set-Content -Path $ModelFile -Value 'qwen3:8b'
 }
 if ($LASTEXITCODE -ne 0) { throw 'pip install failed. See the messages above.' }
 
@@ -120,7 +172,6 @@ if ((Has ollama) -and (Test-Path $ModelFile)) {
 
 # ---------------------------------------------------------------- config / secrets
 Say 'Setting up config'
-New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 if (-not (Test-Path $EnvFile)) {
     $bytes = New-Object byte[] 32
     [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
@@ -196,7 +247,10 @@ if ($browser) {
 
 if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
 '@
-$launcherBody = $launcherBody.Replace('@INSTALL_DIR@', $InstallDir).Replace('@ENV_FILE@', $EnvFile).Replace('@PORT@', "$Port").Replace('@APP_ID@', $AppId)
+# Escape single quotes so a path like C:\Users\O'Brien\... can't break the generated script
+$qInstall = $InstallDir.Replace("'", "''")
+$qEnv     = $EnvFile.Replace("'", "''")
+$launcherBody = $launcherBody.Replace('@INSTALL_DIR@', $qInstall).Replace('@ENV_FILE@', $qEnv).Replace('@PORT@', "$Port").Replace('@APP_ID@', $AppId)
 Set-Content -Path $Launcher -Value $launcherBody -Encoding UTF8
 
 # ---------------------------------------------------------------- Start Menu shortcut
@@ -211,6 +265,7 @@ $lnk.Save()
 
 Say 'Done!'
 Write-Host "Open '$AppName' from the Start Menu."
-Write-Host "Logs:   $InstallDir\server.log  (errors: server.err.log)"
-Write-Host "Config: $EnvFile"
-Write-Host 'Remove: run uninstall_windows.bat'
+Write-Host "Installed in: $InstallDir"
+Write-Host "Logs:         $InstallDir\server.log  (errors: server.err.log)"
+Write-Host "Config:       $EnvFile"
+Write-Host 'Remove:       run uninstall_windows.bat'
