@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # AI Interviewer installer for macOS.
-#   Double-click, or:  bash install_macos.command [--dir FOLDER]
+#   Double-click, or:  bash install_macos.command [--dir FOLDER] [--yes] [--no-ollama]
 # If no folder is given you will be asked (press Enter for the default).
 # You can also set AI_INTERVIEWER_DIR instead of passing --dir.
 set -euo pipefail
-trap 'echo; read -r -p "Press Enter to close..." _' EXIT
+if [ -z "${AI_INTERVIEWER_GUI:-}" ]; then trap 'echo; read -r -p "Press Enter to close..." _' EXIT; fi
 
 APP_NAME="AI Interviewer"
 APP_ID="ai-interviewer"
 REPO_URL="https://github.com/ngminhhoang2006/AI-Interviewer-Project.git"
 PORT=5000
 MARKER=".ai-interviewer-install"
+ASSUME_YES=0
+NO_OLLAMA=0
 
 DEFAULT_INSTALL_DIR="$HOME/.local/share/$APP_ID"
 CONFIG_DIR="$HOME/.config/$APP_ID"
@@ -19,7 +21,7 @@ PATH_FILE="$CONFIG_DIR/install_path"
 APP_BUNDLE="$HOME/Applications/$APP_NAME.app"
 
 say() { printf '\n==> %s\n' "$*"; }
-ask() { read -r -p "$1 [Y/n] " a; [[ "${a:-Y}" =~ ^[Yy]$ ]]; }
+ask() { [ "$ASSUME_YES" = 1 ] && return 0; read -r -p "$1 [Y/n] " a; [[ "${a:-Y}" =~ ^[Yy]$ ]]; }
 
 [ "$(uname)" = "Darwin" ] || { echo "This installer is for macOS only."; exit 1; }
 
@@ -31,8 +33,10 @@ while [ $# -gt 0 ]; do
             [ -n "${2:-}" ] || { echo "--dir needs a folder argument."; exit 1; }
             CHOSEN="$2"; shift 2 ;;
         --dir=*) CHOSEN="${1#--dir=}"; shift ;;
+        -y|--yes) ASSUME_YES=1; shift ;;
+        --no-ollama) NO_OLLAMA=1; shift ;;
         -h|--help)
-            echo "Usage: bash install_macos.command [--dir FOLDER]"
+            echo "Usage: bash install_macos.command [--dir FOLDER] [--yes] [--no-ollama]"
             echo "Default folder: $DEFAULT_INSTALL_DIR"
             exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
@@ -101,7 +105,9 @@ PY="$(brew --prefix python@3.12)/bin/python3.12"
 
 if ! command -v ollama >/dev/null && [ ! -d "/Applications/Ollama.app" ]; then
     echo "Ollama is needed for question generation and grading."
-    if ask "Install Ollama with Homebrew now?"; then
+    if [ "$NO_OLLAMA" = 1 ]; then
+        echo "Skipping. Install it later from https://ollama.com"
+    elif ask "Install Ollama with Homebrew now?"; then
         brew install --cask ollama
     else
         echo "Skipping. Install it later from https://ollama.com"

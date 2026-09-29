@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # AI Interviewer uninstaller for macOS.
-#   Double-click, or:  bash uninstall_macos.command [--dir FOLDER]
+#   Double-click, or:  bash uninstall_macos.command [--dir FOLDER] [--yes] [--backup|--no-backup] [--delete-config|--keep-config]
 # --dir is only needed if the install location can't be detected automatically.
 set -uo pipefail
-trap 'echo; read -r -p "Press Enter to close..." _' EXIT
+if [ -z "${AI_INTERVIEWER_GUI:-}" ]; then trap 'echo; read -r -p "Press Enter to close..." _' EXIT; fi
 
 APP_NAME="AI Interviewer"
 APP_ID="ai-interviewer"
@@ -18,6 +18,9 @@ PROFILE_DIR="$HOME/Library/Caches/$APP_ID-profile"
 
 say() { printf '\n==> %s\n' "$*"; }
 ask() { read -r -p "$1 [y/N] " a; [[ "${a:-N}" =~ ^[Yy]$ ]]; }
+# mode_ask MODE QUESTION: MODE is yes/no (pre-answered) or anything else to ask
+mode_ask() { case "$1" in yes) return 0 ;; no) return 1 ;; *) ask "$2" ;; esac; }
+ASSUME_YES=0; BACKUP_MODE=ask; CONFIG_MODE=ask
 
 # ---------------------------------------------------------------- locate install folder
 INSTALL_DIR=""
@@ -25,7 +28,12 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -d|--dir) INSTALL_DIR="${2:-}"; shift 2 ;;
         --dir=*)  INSTALL_DIR="${1#--dir=}"; shift ;;
-        -h|--help) echo "Usage: bash uninstall_macos.command [--dir FOLDER]"; exit 0 ;;
+        -y|--yes) ASSUME_YES=1; shift ;;
+        --backup) BACKUP_MODE=yes; shift ;;
+        --no-backup) BACKUP_MODE=no; shift ;;
+        --delete-config) CONFIG_MODE=yes; shift ;;
+        --keep-config) CONFIG_MODE=no; shift ;;
+        -h|--help) echo "Usage: bash uninstall_macos.command [--dir FOLDER] [--yes] [--backup|--no-backup] [--delete-config|--keep-config]"; exit 0 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -63,7 +71,7 @@ fi
 
 echo "This will remove $APP_NAME from your Mac."
 [ "$REMOVE_DIR" = 1 ] && echo "Install folder: $INSTALL_DIR"
-ask "Continue?" || { echo "Cancelled."; exit 0; }
+[ "$ASSUME_YES" = 1 ] || ask "Continue?" || { echo "Cancelled."; exit 0; }
 
 say "Stopping server"
 [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
@@ -73,7 +81,7 @@ rm -f "$PIDFILE"
 if [ "$REMOVE_DIR" = 1 ] && { [ -d "$INSTALL_DIR/uploads" ] || [ -d "$INSTALL_DIR/database" ]; }; then
     echo
     echo "Found user data (candidate uploads/reports and the accounts database)."
-    if ask "Save a backup copy to your home folder before deleting?"; then
+    if mode_ask "$BACKUP_MODE" "Save a backup copy to your home folder before deleting?"; then
         BACKUP="$HOME/${APP_ID}-backup-$(date +%Y%m%d-%H%M%S)"
         mkdir -p "$BACKUP"
         [ -d "$INSTALL_DIR/uploads" ]  && cp -a "$INSTALL_DIR/uploads"  "$BACKUP/"
@@ -88,7 +96,7 @@ rm -rf "$APP_BUNDLE"
 rm -rf "$PROFILE_DIR"
 
 if [ -d "$CONFIG_DIR" ]; then
-    if ask "Also delete config ($CONFIG_DIR, contains SECRET_KEY and email settings)?"; then
+    if mode_ask "$CONFIG_MODE" "Also delete config ($CONFIG_DIR, contains SECRET_KEY and email settings)?"; then
         rm -rf "$CONFIG_DIR"
     else
         rm -f "$PATH_FILE"   # stale once the install folder is gone
