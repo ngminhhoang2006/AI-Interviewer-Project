@@ -133,6 +133,7 @@ def mic_test_page(candidate, lang):
 
 
 @app.route("/interview/<candidate>/<lang>")
+@login_required
 def interview_page(candidate, lang):
     cand_dir = UPLOAD_FOLDER / candidate
     questions_file = cand_dir / f"{candidate}_questions_{lang}.json"
