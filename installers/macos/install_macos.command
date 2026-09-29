@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# AI Interviewer installer for macOS (double-click, or: bash install_macos.command)
+# AI Interviewer installer for macOS.
+#   Double-click, or:  bash install_macos.command [--dir FOLDER]
+# If no folder is given you will be asked (press Enter for the default).
+# You can also set AI_INTERVIEWER_DIR instead of passing --dir.
 set -euo pipefail
 trap 'echo; read -r -p "Press Enter to close..." _' EXIT
 
@@ -7,16 +10,64 @@ APP_NAME="AI Interviewer"
 APP_ID="ai-interviewer"
 REPO_URL="https://github.com/ngminhhoang2006/AI-Interviewer-Project.git"
 PORT=5000
+MARKER=".ai-interviewer-install"
 
-INSTALL_DIR="$HOME/.local/share/$APP_ID"
+DEFAULT_INSTALL_DIR="$HOME/.local/share/$APP_ID"
 CONFIG_DIR="$HOME/.config/$APP_ID"
 ENV_FILE="$CONFIG_DIR/env"
+PATH_FILE="$CONFIG_DIR/install_path"
 APP_BUNDLE="$HOME/Applications/$APP_NAME.app"
 
 say() { printf '\n==> %s\n' "$*"; }
 ask() { read -r -p "$1 [Y/n] " a; [[ "${a:-Y}" =~ ^[Yy]$ ]]; }
 
 [ "$(uname)" = "Darwin" ] || { echo "This installer is for macOS only."; exit 1; }
+
+# ---------------------------------------------------------------- choose install folder
+CHOSEN="${AI_INTERVIEWER_DIR:-}"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -d|--dir)
+            [ -n "${2:-}" ] || { echo "--dir needs a folder argument."; exit 1; }
+            CHOSEN="$2"; shift 2 ;;
+        --dir=*) CHOSEN="${1#--dir=}"; shift ;;
+        -h|--help)
+            echo "Usage: bash install_macos.command [--dir FOLDER]"
+            echo "Default folder: $DEFAULT_INSTALL_DIR"
+            exit 0 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+if [ -z "$CHOSEN" ]; then
+    read -r -p "Install location [$DEFAULT_INSTALL_DIR]: " CHOSEN
+    CHOSEN="${CHOSEN:-$DEFAULT_INSTALL_DIR}"
+fi
+
+# Expand a leading ~ (Terminal drag-and-drop of a folder also works: it pastes the path)
+case "$CHOSEN" in
+    "~")   CHOSEN="$HOME" ;;
+    "~/"*) CHOSEN="$HOME/${CHOSEN#\~/}" ;;
+esac
+
+mkdir -p "$CHOSEN" || { echo "Cannot create $CHOSEN"; exit 1; }
+CHOSEN="$(cd "$CHOSEN" && pwd)"   # absolute path
+
+if [ "$CHOSEN" = "/" ] || [ "$CHOSEN" = "$HOME" ]; then
+    echo "Refusing to install directly into '$CHOSEN'. Pick a dedicated folder."
+    exit 1
+fi
+
+# The uninstaller deletes this folder, so never adopt a folder that already holds
+# someone else's files: nest inside it instead.
+INSTALL_DIR="$CHOSEN"
+if [ ! -e "$CHOSEN/$MARKER" ] && [ ! -d "$CHOSEN/.git" ] && [ -n "$(ls -A "$CHOSEN")" ]; then
+    INSTALL_DIR="$CHOSEN/$APP_ID"
+    echo "'$CHOSEN' is not empty, so the app will go in '$INSTALL_DIR' instead."
+fi
+mkdir -p "$INSTALL_DIR"
+
+say "Installing to $INSTALL_DIR"
 
 # ---------------------------------------------------------------- toolchain
 say "Checking Xcode command line tools (needed to build webrtcvad)"
@@ -62,9 +113,13 @@ say "Fetching project into $INSTALL_DIR"
 if [ -d "$INSTALL_DIR/.git" ]; then
     git -C "$INSTALL_DIR" pull --ff-only
 else
-    mkdir -p "$(dirname "$INSTALL_DIR")"
     git clone "$REPO_URL" "$INSTALL_DIR"
 fi
+touch "$INSTALL_DIR/$MARKER"
+
+# Remember where we installed so uninstall_macos.command can find it
+mkdir -p "$CONFIG_DIR"
+printf '%s\n' "$INSTALL_DIR" > "$PATH_FILE"
 
 # ---------------------------------------------------------------- python venv
 say "Creating virtual environment"
@@ -90,6 +145,10 @@ skip = {"werkzeug"}
 pkgs, models = [], []
 for raw in open(src, encoding="utf-8"):
     line = raw.strip()
+    # Model named in a comment, e.g. "# ... with the model: ollama pull qwen3:8b"
+    pull = re.search(r"ollama\s+pull\s+([A-Za-z0-9_.:\-/]+)", line)
+    if pull and pull.group(1) not in models:
+        models.append(pull.group(1))
     if not line or line.startswith("#"):
         continue
     m = re.match(r"^([A-Za-z0-9_.\-]+)\s*(.*)$", line)
@@ -113,8 +172,8 @@ PY
 else
     echo "No requirements.txt found; installing a minimal fallback set."
     "$PIP" install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy \
-        ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy
-    : > "$MODEL_FILE"
+        ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests
+    echo "qwen3:8b" > "$MODEL_FILE"
 fi
 
 # Pull the Ollama model(s) named in requirements.txt
@@ -130,7 +189,6 @@ fi
 
 # ---------------------------------------------------------------- config / secrets
 say "Setting up config"
-mkdir -p "$CONFIG_DIR"
 if [ ! -f "$ENV_FILE" ]; then
     SECRET="$("$PY" -c 'import secrets; print(secrets.token_hex(32))')"
     cat > "$ENV_FILE" <<EOF
@@ -229,7 +287,8 @@ chmod +x "$LAUNCHER"
 
 say "Done!"
 echo "Open '$APP_NAME' from ~/Applications, Launchpad or Spotlight."
-echo "Logs:   $INSTALL_DIR/server.log"
-echo "Config: $ENV_FILE"
+echo "Installed in: $INSTALL_DIR"
+echo "Logs:         $INSTALL_DIR/server.log"
+echo "Config:       $ENV_FILE"
 echo "First launch: macOS will ask for microphone access for your browser. Allow it."
-echo "Remove: run uninstall_macos.command"
+echo "Remove:       run uninstall_macos.command"
