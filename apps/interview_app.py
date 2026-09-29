@@ -17,7 +17,7 @@ import chatbot
 import grade_interview
 import numpy as np
 
-from flask_login import current_user
+from flask_login import current_user, login_required
 from models import db, InterviewResult
 
 

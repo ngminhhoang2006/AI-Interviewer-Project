@@ -308,6 +308,7 @@ def homepage():
     return render_template("home.html")
 
 @app.route("/interview_portal")
+@login_required
 def interview_portal():
     return render_template("index.html")
 
