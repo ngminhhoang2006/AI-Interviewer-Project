@@ -174,6 +174,18 @@ if ((Has ollama) -and (Test-Path $ModelFile)) {
     }
 }
 
+# ---------------------------------------------------------------- speech models
+Say 'Downloading speech models (about 1.2 GB the first time; already-installed ones are skipped)'
+$ModelScript = Join-Path $InstallDir 'system\download_models.py'
+if (Test-Path -LiteralPath $ModelScript) {
+    & $VenvPy $ModelScript
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Some speech models could not be downloaded. Re-run later with: `"$VenvPy`" `"$ModelScript`"" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host 'NOTE: system\download_models.py was not found in the project, so no speech models were installed.' -ForegroundColor Yellow
+}
+
 # ---------------------------------------------------------------- config / secrets
 Say 'Setting up config'
 if (-not (Test-Path $EnvFile)) {

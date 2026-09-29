@@ -75,7 +75,7 @@ $lblTitle.Font = New-Object System.Drawing.Font('Segoe UI', 14, [System.Drawing.
 
 $introText = if ($IsInstall) {
     "This installs $AppName and anything it needs (Git, Python 3.12, FFmpeg) if they are missing. " +
-    "Windows may ask for permission during setup. The first install also downloads the AI model (several GB), so it can take a while."
+    "Windows may ask for permission during setup. The first install also downloads the AI and speech models (several GB), so it can take a while."
 } else {
     "This removes $AppName from this PC. Git, Python, FFmpeg and Ollama are shared tools and are left in place."
 }
