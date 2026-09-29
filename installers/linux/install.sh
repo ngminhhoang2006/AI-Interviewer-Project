@@ -12,6 +12,7 @@ APP_ID="ai-interviewer"
 REPO_URL="https://github.com/ngminhhoang2006/AI-Interviewer-Project.git"
 PORT=5000
 MARKER=".ai-interviewer-install"
+ASSUME_YES=0
 
 DEFAULT_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/$APP_ID"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$APP_ID"
@@ -28,6 +29,7 @@ usage() {
 Usage: bash install.sh [--dir FOLDER]
 
   -d, --dir FOLDER   Install the app into FOLDER (created if missing).
+  -y, --yes          Don't ask questions (auto-answer yes to installing missing packages).
   -h, --help         Show this help.
 
 If no folder is given you will be asked. Default: $DEFAULT_INSTALL_DIR
@@ -43,6 +45,7 @@ while [ $# -gt 0 ]; do
             [ -n "${2:-}" ] || { echo "--dir needs a folder argument."; exit 1; }
             CHOSEN="$2"; shift 2 ;;
         --dir=*) CHOSEN="${1#--dir=}"; shift ;;
+        -y|--yes) ASSUME_YES=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -98,9 +101,15 @@ fi
 if [ ${#missing[@]} -gt 0 ]; then
     echo "Missing packages: ${missing[*]}"
     if command -v apt-get >/dev/null; then
-        read -r -p "Install them with apt now (needs sudo)? [Y/n] " ans
+        ans=Y
+        [ "$ASSUME_YES" = 1 ] || read -r -p "Install them with apt now (needs sudo)? [Y/n] " ans
         if [[ "${ans:-Y}" =~ ^[Yy]$ ]]; then
-            sudo apt-get update && sudo apt-get install -y "${missing[@]}"
+            SUDO=(sudo)
+            if [ -n "${AI_INTERVIEWER_GUI:-}" ]; then      # no terminal for a sudo prompt: use a graphical one
+                command -v pkexec >/dev/null || { echo "pkexec not found. Install these packages manually and re-run: ${missing[*]}"; exit 1; }
+                SUDO=(pkexec)
+            fi
+            "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y "$@"' _ "${missing[@]}"
         else
             echo "Please install them manually and re-run."; exit 1
         fi
