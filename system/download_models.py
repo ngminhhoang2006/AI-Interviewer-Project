@@ -17,10 +17,12 @@ Models that are already in place are skipped, so it is safe to run repeatedly
 
 Folder layout produced (this is what chatbot.py expects):
     sherpa_models/asr/           Whisper (multilingual speech-to-text), int8 files only
-    sherpa_models/asr_parakeet/  Parakeet-TDT 0.6B v3 (fast speech-to-text for en/es/fr/de/it/pt/ru)
+    sherpa_models/asr_parakeet/  Parakeet-TDT 0.6B v3 (fast speech-to-text for 25 European languages)
     sherpa_models/tts/           English voice   (model.onnx, tokens.txt, espeak-ng-data/)
     sherpa_models/tts_vi/        Vietnamese voice
     sherpa_models/tts_<language>/  extra voices, e.g. tts_spanish (downloaded by default; see EXTRA_VOICES)
+    sherpa_models/tts_supertonic/  one model for Japanese, Korean, Ukrainian and more (~130 MB)
+    sherpa_models/tts_thai/        Thai voice (MMS)
 """
 import argparse
 import os
@@ -53,7 +55,8 @@ VIETNAMESE_VOICE = "vits-piper-vi_VN-vais1000-medium"
 
 # Extra offline voices, downloaded by default (about 60-75 MB each). The folder becomes tts_<language>.
 # Use --core-only to skip them, or --voices spanish french ... to pick some.
-# Japanese, Korean and Thai have no Piper voice, so they keep using the browser voice.
+# Japanese, Korean and Ukrainian have no Piper voice, so they use Supertonic 3 (one multilingual model,
+# see MULTILINGUAL_SPECS); Thai uses an MMS voice. Both are downloaded together with the extras.
 EXTRA_VOICES = {
     "spanish":    "vits-piper-es_ES-davefx-medium",
     "french":     "vits-piper-fr_FR-siwis-medium",
@@ -67,7 +70,6 @@ EXTRA_VOICES = {
     "arabic":     "vits-piper-ar_JO-kareem-medium",
     "turkish":    "vits-piper-tr_TR-dfki-medium",
     "polish":     "vits-piper-pl_PL-gosia-medium",
-    "ukrainian":  "vits-piper-uk_UA-ukrainian_tts-medium",
 }
 
 
@@ -92,11 +94,25 @@ def piper(folder, voice):
                 rename_onnx="model.onnx", label=f"{folder} ({voice})")
 
 
+# Voices that are not Piper: Supertonic 3 speaks 31 languages (Japanese, Korean, Ukrainian, Arabic, ...),
+# MMS gives Thai. chatbot.py uses a language's own tts_<language> folder first, then Supertonic.
+MULTILINGUAL_SPECS = [
+    Spec("tts_supertonic", "tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2",
+         present=["duration_predictor.int8.onnx", "text_encoder.int8.onnx", "vector_estimator.int8.onnx",
+                  "vocoder.int8.onnx", "tts.json", "unicode_indexer.bin", "voice.bin"],
+         label="tts_supertonic (Supertonic 3: Japanese, Korean, Ukrainian + 28 more)"),
+    Spec("tts_thai", "tts-models/vits-mms-tha.tar.bz2",
+         present=["model.onnx", "tokens.txt"], label="tts_thai (MMS Thai)"),
+]
+
+
 def core_specs(whisper_size):
     return [
         Spec("asr", f"asr-models/sherpa-onnx-whisper-{whisper_size}.tar.bz2",
-             present=["*encoder*.onnx", "*decoder*.onnx", "*tokens*.txt"],
-             prefer_int8=True, replace=True, label=f"asr (Whisper {whisper_size})"),
+             # Size-specific names: an English-only "small.en-encoder..." or a different size
+             # does NOT count as installed, so it gets replaced by the multilingual model.
+             present=[f"{whisper_size}-encoder*.onnx", f"{whisper_size}-decoder*.onnx", f"{whisper_size}-tokens.txt"],
+             prefer_int8=True, replace=True, label=f"asr (Whisper {whisper_size}, multilingual)"),
         Spec("asr_parakeet", "asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
              present=["encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"],
              label="asr_parakeet (Parakeet-TDT 0.6B v3)"),
@@ -229,7 +245,7 @@ def main():
     ap.add_argument("--voices", nargs="*", default=None, metavar="LANG",
                     help=f"only these extra offline voices (default: all of them): {', '.join(EXTRA_VOICES)}")
     ap.add_argument("--core-only", action="store_true",
-                    help="skip the extra language voices; install only Whisper, Parakeet, English and Vietnamese")
+                    help="skip all extra voices (Piper, Supertonic, Thai); install only Whisper, Parakeet, English and Vietnamese")
     ap.add_argument("--only", nargs="*", default=None, metavar="FOLDER", help="only these folders, e.g. asr tts")
     ap.add_argument("--force", action="store_true", help="re-download even if already installed")
     ap.add_argument("--list", action="store_true", help="show the plan and exit")
@@ -252,6 +268,8 @@ def main():
         if lang not in EXTRA_VOICES:
             ap.error(f"no extra voice for '{lang}'. Available: {', '.join(EXTRA_VOICES)}")
         specs.append(piper(f"tts_{lang}", EXTRA_VOICES[lang]))
+    if not args.core_only:
+        specs.extend(MULTILINGUAL_SPECS)          # Japanese, Korean, Ukrainian (Supertonic) and Thai (MMS)
     if args.only is not None:
         specs = [s for s in specs if s.folder in args.only]
 

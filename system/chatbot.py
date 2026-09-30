@@ -98,6 +98,16 @@ WHISPER_LANG_CODES = {
 # Offline voice folder (under sherpa_models/) for each language.
 # Other languages use sherpa_models/tts_<language>/ if download_models.py installed it.
 TTS_FOLDERS = {"english": "tts", "vietnamese": "tts_vi"}
+# Languages without a dedicated Piper/MMS voice folder are spoken by the multilingual
+# Supertonic 3 model (sherpa_models/tts_supertonic/) using these language codes.
+SUPERTONIC_FOLDER = "tts_supertonic"
+SUPERTONIC_LANG_CODES = {
+    "japanese": "ja", "korean": "ko", "ukrainian": "uk", "arabic": "ar", "turkish": "tr",
+    "polish": "pl", "spanish": "es", "french": "fr", "german": "de", "italian": "it",
+    "portuguese": "pt", "russian": "ru", "hindi": "hi", "indonesian": "id",
+    "vietnamese": "vi", "english": "en",
+}
+SUPERTONIC_SPEAKER = 6      # the model has 10 voices (0-9)
 
 
 def flatten_text(text: str) -> str:
@@ -265,6 +275,9 @@ def _estimate_noise_floor(samples: np.ndarray, sample_rate: int, frame_ms: int =
 # raise it if noisy clips are slipping through undenoised, lower it if
 # clean clips are still getting degraded.
 NOISE_FLOOR_SKIP_THRESHOLD = 0.01
+
+# Recordings whose loudest sample is below this are treated as silence (no mic signal).
+MIN_SPEECH_PEAK = 0.005
 
 
 def _load_sherpa_denoiser():
@@ -470,6 +483,14 @@ def transcribe_audio_sherpa(samples, sample_rate: int = 16000, language: str = "
     try:
         samples_np = np.array(samples, dtype=np.float32)
 
+        # Whisper "hears" music/subtitles in silence, so check the level first.
+        duration = samples_np.size / float(sample_rate or 16000)
+        peak = float(np.abs(samples_np).max()) if samples_np.size else 0.0
+        print(f"[STT] Audio: {duration:.1f}s, peak level {peak:.3f}, rms {_rms(samples_np):.4f}")
+        if duration < 0.3 or peak < MIN_SPEECH_PEAK:
+            print("[STT] Recording is empty or silent (check the microphone / input volume); skipping.")
+            return ""
+
         if denoise:
             samples_np, sample_rate = denoise_audio(samples_np, sample_rate)
 
@@ -490,6 +511,11 @@ def transcribe_audio_sherpa(samples, sample_rate: int = 16000, language: str = "
         ]
         for pattern in hallucinations:
             result_text = re.sub(pattern, "", result_text, flags=re.IGNORECASE).strip()
+
+        # Whisper labels non-speech in the language being decoded, e.g. "(音楽)", "[Música]",
+        # "(Musik)", "♪". If nothing but such tags is left, there was no speech at all.
+        if not re.sub(r"[\(\[（【][^\)\]）】]{0,40}[\)\]）】]|[♪♫♬\s.。…,、]", "", result_text):
+            result_text = ""
 
         print(f"[STT Success] Recognized ({language}): '{result_text}'")
         return result_text
@@ -518,11 +544,90 @@ def listen_for_answer(language):
 
 # Cache for multi-language TTS engines
 _sherpa_tts_engines = {}
+# Why the offline voice was NOT used for a language (shown in the browser console via /api/tts)
+TTS_LAST_ERROR = {}
+
+_supertonic_engine = None
+_tts_supertonic_lang = {}   # lang_key -> Supertonic language code, for languages served by Supertonic
+
+
+def _load_vits_voice(model_dir, lang_key, language):
+    """Piper / MMS voice folder (model.onnx + tokens.txt [+ espeak-ng-data]). Returns an engine or None."""
+    model_path = model_dir / "model.onnx"
+    tokens_path = model_dir / "tokens.txt"
+    data_dir_path = model_dir / "espeak-ng-data"
+    if not model_path.exists():
+        return None
+
+    # Character-based Piper voices ("phoneme_type": "text", e.g. the old Ukrainian one) can't be run
+    # by sherpa-onnx's espeak frontend: they load but produce near-silent audio. Skip those.
+    for cfg_file in model_dir.glob("*.onnx.json"):
+        try:
+            if json.loads(cfg_file.read_text(encoding="utf-8")).get("phoneme_type") == "text":
+                print(f"[TTS] Voice in {model_dir} is character-based and unsupported; skipping it.")
+                return None
+        except (OSError, ValueError):
+            pass
+
+    try:
+        tts_config = sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(
+                vits=sherpa_onnx.OfflineTtsVitsModelConfig(
+                    model=str(model_path),
+                    tokens=str(tokens_path),
+                    lexicon="",
+                    data_dir=str(data_dir_path) if data_dir_path.exists() else "",
+                )
+            )
+        )
+        engine = sherpa_onnx.OfflineTts(tts_config)
+        print(f"[TTS Initialized] Loaded Sherpa-ONNX voice for '{language}' ({model_dir.name})")
+        return engine
+    except Exception as e:  # noqa: BLE001 - a broken voice must fall back, not crash the request
+        TTS_LAST_ERROR[lang_key] = f"Could not load voice from {model_dir}: {e}"
+        print(f"[TTS Error] Could not load the '{language}' voice from {model_dir}: {e}")
+        return None
+
+
+def _load_supertonic():
+    """Multilingual Supertonic 3 model (shared by every language it serves). Returns an engine or None."""
+    global _supertonic_engine
+    if _supertonic_engine is not None:
+        return _supertonic_engine
+    d = (BASE_DIR / "sherpa_models" / SUPERTONIC_FOLDER).resolve()
+    if not (d / "vocoder.int8.onnx").exists():
+        return None
+    if not hasattr(sherpa_onnx, "OfflineTtsSupertonicModelConfig"):
+        print("[TTS] Installed sherpa-onnx is too old for Supertonic. Run: pip install -U sherpa-onnx")
+        return None
+    try:
+        cfg = sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(
+                supertonic=sherpa_onnx.OfflineTtsSupertonicModelConfig(
+                    duration_predictor=str(d / "duration_predictor.int8.onnx"),
+                    text_encoder=str(d / "text_encoder.int8.onnx"),
+                    vector_estimator=str(d / "vector_estimator.int8.onnx"),
+                    vocoder=str(d / "vocoder.int8.onnx"),
+                    tts_json=str(d / "tts.json"),
+                    unicode_indexer=str(d / "unicode_indexer.bin"),
+                    voice_style=str(d / "voice.bin"),
+                ),
+                num_threads=2,
+                provider="cpu",
+            )
+        )
+        _supertonic_engine = sherpa_onnx.OfflineTts(cfg)
+        print("[TTS Initialized] Loaded Supertonic 3 multilingual voice")
+        return _supertonic_engine
+    except Exception as e:  # noqa: BLE001
+        print(f"[TTS Error] Could not load Supertonic from {d}: {e}")
+        return None
+
 
 def get_sherpa_tts_engine(language: str = "English"):
-    """Loads and caches language-specific Sherpa-ONNX TTS engines."""
-    global _sherpa_tts_engines
-    
+    """Loads and caches the offline voice for a language: its own folder first
+    (tts, tts_vi, tts_spanish, tts_thai ...), then the multilingual Supertonic model.
+    Returns None if neither exists, so the browser voice is used instead."""
     lang_key = language.lower().strip()
     if lang_key in _sherpa_tts_engines:
         return _sherpa_tts_engines[lang_key]
@@ -531,39 +636,37 @@ def get_sherpa_tts_engine(language: str = "English"):
         print("[TTS Error] sherpa_onnx package unavailable.")
         return None
 
-    # Pick the voice folder for this language (tts, tts_vi, tts_spanish, ...)
     folder = TTS_FOLDERS.get(lang_key, f"tts_{lang_key}")
-    model_dir = (BASE_DIR / "sherpa_models" / folder).resolve()
+    engine = _load_vits_voice((BASE_DIR / "sherpa_models" / folder).resolve(), lang_key, language)
 
-    model_path = model_dir / "model.onnx"
-    tokens_path = model_dir / "tokens.txt"
-    data_dir_path = model_dir / "espeak-ng-data"
+    if engine is None and lang_key in SUPERTONIC_LANG_CODES:
+        engine = _load_supertonic()
+        if engine is not None:
+            _tts_supertonic_lang[lang_key] = SUPERTONIC_LANG_CODES[lang_key]
 
-    if not model_path.exists():
-        # Return None (instead of reading e.g. Japanese text with the English voice);
-        # /api/tts then tells the browser to use its own voice for this language.
-        hint = ("python system/download_models.py" if lang_key in TTS_FOLDERS
-                else f"python system/download_models.py --voices {lang_key}")
-        print(f"[TTS] No offline voice for '{language}' at {model_dir}; using browser voice. "
-              f"(Install with: {hint})")
+    if engine is None:
+        if lang_key not in TTS_LAST_ERROR:
+            TTS_LAST_ERROR[lang_key] = (f"No offline voice for {language} "
+                                        f"(install with: python system/download_models.py)")
+        print(f"[TTS] {TTS_LAST_ERROR[lang_key]}; using the browser voice.")
         return None
 
-    # VITS Piper configuration with espeak-ng data support
-    tts_config = sherpa_onnx.OfflineTtsConfig(
-        model=sherpa_onnx.OfflineTtsModelConfig(
-            vits=sherpa_onnx.OfflineTtsVitsModelConfig(
-                model=str(model_path),
-                tokens=str(tokens_path),
-                lexicon="",
-                data_dir=str(data_dir_path) if data_dir_path.exists() else "",
-            )
-        )
-    )
-
-    engine = sherpa_onnx.OfflineTts(tts_config)
+    TTS_LAST_ERROR.pop(lang_key, None)
     _sherpa_tts_engines[lang_key] = engine
-    print(f"[TTS Initialized] Loaded Sherpa-ONNX model for '{language}'")
     return engine
+
+
+def _generate_audio(tts, lang_key, text):
+    """Runs the right generate() call for a Piper/MMS voice or for Supertonic."""
+    code = _tts_supertonic_lang.get(lang_key)
+    if code:
+        gen = sherpa_onnx.GenerationConfig()
+        gen.sid = SUPERTONIC_SPEAKER
+        gen.num_steps = 8
+        gen.speed = 1.0
+        gen.extra["lang"] = code
+        return tts.generate(text, gen)
+    return tts.generate(text, sid=0, speed=1.0)
 
 
 def synthesize_sherpa_wav(text: str, language: str = "English") -> bytes:
@@ -573,7 +676,7 @@ def synthesize_sherpa_wav(text: str, language: str = "English") -> bytes:
         return None
 
     try:
-        audio = tts.generate(text, sid=0, speed=1.0)
+        audio = _generate_audio(tts, language.lower().strip(), text)
         if not audio or len(audio.samples) == 0:
             return None
 
@@ -591,6 +694,7 @@ def synthesize_sherpa_wav(text: str, language: str = "English") -> bytes:
         return buffer.read()
 
     except Exception as e:
+        TTS_LAST_ERROR[language.lower().strip()] = f"Synthesis failed: {e}"
         print(f"[Sherpa TTS Error] {e}")
         return None
 
@@ -602,7 +706,7 @@ def speak(text, language=None):
     tts = get_sherpa_tts_engine(language or "English")
     if tts:
         try:
-            audio = tts.generate(text, sid=0, speed=1.0)
+            audio = _generate_audio(tts, (language or "English").lower().strip(), text)
             samples = np.array(audio.samples, dtype=np.float32)
             sd.play(samples, audio.sample_rate)
             sd.wait()
