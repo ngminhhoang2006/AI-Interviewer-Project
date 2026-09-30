@@ -4,7 +4,8 @@
 
 {% block content %}
 <div class="card interview-card" id="interviewConfig"
-     data-candidate="{{ candidate or '' }}" data-language="{{ language or 'English' }}">
+     data-candidate="{{ candidate or '' }}" data-language="{{ language or 'English' }}"
+     data-lang-tag="{{ language_tag or '' }}">
     
     <!-- Interview Mode Selector Banner -->
     <div class="mode-banner">

@@ -33,8 +33,29 @@
             <label for="language">Interview Language</label>
             <div class="select-wrapper">
                 <select id="language" class="custom-select">
-                    <option value="English">English</option>
-                    <option value="Vietnamese">Vietnamese (Tiếng Việt)</option>
+                    {# The list comes from SUPPORTED_LANGUAGES in interview_app.py; the fallback keeps the page working without it #}
+                    {% set langs = interview_languages if interview_languages is defined else [
+                        {'value': 'English', 'label': 'English'},
+                        {'value': 'Vietnamese', 'label': 'Vietnamese (Tiếng Việt)'},
+                        {'value': 'Spanish', 'label': 'Spanish (Español)'},
+                        {'value': 'French', 'label': 'French (Français)'},
+                        {'value': 'German', 'label': 'German (Deutsch)'},
+                        {'value': 'Italian', 'label': 'Italian (Italiano)'},
+                        {'value': 'Portuguese', 'label': 'Portuguese (Português)'},
+                        {'value': 'Russian', 'label': 'Russian (Русский)'},
+                        {'value': 'Hindi', 'label': 'Hindi (हिन्दी)'},
+                        {'value': 'Indonesian', 'label': 'Indonesian (Bahasa Indonesia)'},
+                        {'value': 'Chinese', 'label': 'Chinese (中文)'},
+                        {'value': 'Arabic', 'label': 'Arabic (العربية)'},
+                        {'value': 'Turkish', 'label': 'Turkish (Türkçe)'},
+                        {'value': 'Polish', 'label': 'Polish (Polski)'},
+                        {'value': 'Ukrainian', 'label': 'Ukrainian (Українська)'},
+                        {'value': 'Japanese', 'label': 'Japanese (日本語)'},
+                        {'value': 'Korean', 'label': 'Korean (한국어)'},
+                        {'value': 'Thai', 'label': 'Thai (ไทย)'}] %}
+                    {% for lang in langs %}
+                    <option value="{{ lang.value }}"{% if lang.value == 'English' %} selected{% endif %}>{{ lang.label }}</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
