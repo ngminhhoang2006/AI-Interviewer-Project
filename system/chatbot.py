@@ -79,7 +79,25 @@ _sherpa_denoiser = None
 # downloaded the Parakeet model AND it's in Parakeet v3's supported set
 # (en, es, fr, de, it, pt, nl, pl, ru, uk, and other EU languages — NOT
 # Vietnamese, which stays on Whisper below).
-PARAKEET_LANGUAGES = {"english", "spanish", "french"}
+PARAKEET_LANGUAGES = {
+    "english", "spanish", "french", "german", "italian",
+    "portuguese", "polish", "russian", "ukrainian",
+}
+
+# Whisper language codes for every interview language the app can transcribe.
+# Anything not listed in PARAKEET_LANGUAGES is transcribed by Whisper.
+WHISPER_LANG_CODES = {
+    "english": "en", "vietnamese": "vi", "spanish": "es", "french": "fr",
+    "german": "de", "italian": "it", "portuguese": "pt", "russian": "ru",
+    "hindi": "hi", "indonesian": "id", "chinese": "zh", "arabic": "ar",
+    "turkish": "tr", "polish": "pl", "ukrainian": "uk",
+    # No offline voice for these (browser voice is used), but Whisper can transcribe them
+    "japanese": "ja", "korean": "ko", "thai": "th",
+}
+
+# Offline voice folder (under sherpa_models/) for each language.
+# Other languages use sherpa_models/tts_<language>/ if download_models.py installed it.
+TTS_FOLDERS = {"english": "tts", "vietnamese": "tts_vi"}
 
 
 def flatten_text(text: str) -> str:
@@ -163,13 +181,7 @@ def _load_parakeet_recognizer():
 def _load_whisper_recognizer(language: str):
     """Loads Whisper via Sherpa-ONNX. Used for Vietnamese and any language
     Parakeet doesn't cover."""
-    lang_map = {
-        "vietnamese": "vi",
-        "english": "en",
-        "spanish": "es",
-        "french": "fr"
-    }
-    target_lang = lang_map.get(language, "en")
+    target_lang = WHISPER_LANG_CODES.get(language.lower().strip(), "en")
 
     model_dir = (BASE_DIR / "sherpa_models" / "asr").resolve()
 
@@ -495,7 +507,7 @@ def listen_for_answer(language):
         return ""
 
     print("Transcribing with Sherpa-ONNX...")
-    text = transcribe_audio_sherpa(audio)
+    text = transcribe_audio_sherpa(audio, language=language)
     print(f"You said: {text}")
     return text
 
@@ -511,7 +523,7 @@ def get_sherpa_tts_engine(language: str = "English"):
     """Loads and caches language-specific Sherpa-ONNX TTS engines."""
     global _sherpa_tts_engines
     
-    lang_key = language.lower()
+    lang_key = language.lower().strip()
     if lang_key in _sherpa_tts_engines:
         return _sherpa_tts_engines[lang_key]
 
@@ -519,18 +531,21 @@ def get_sherpa_tts_engine(language: str = "English"):
         print("[TTS Error] sherpa_onnx package unavailable.")
         return None
 
-    # Switch directories based on language parameter
-    if lang_key == "vietnamese":
-        model_dir = (BASE_DIR / "sherpa_models" / "tts_vi").resolve()
-    else:
-        model_dir = (BASE_DIR / "sherpa_models" / "tts").resolve()
+    # Pick the voice folder for this language (tts, tts_vi, tts_spanish, ...)
+    folder = TTS_FOLDERS.get(lang_key, f"tts_{lang_key}")
+    model_dir = (BASE_DIR / "sherpa_models" / folder).resolve()
 
     model_path = model_dir / "model.onnx"
     tokens_path = model_dir / "tokens.txt"
     data_dir_path = model_dir / "espeak-ng-data"
 
     if not model_path.exists():
-        print(f"[TTS Error] Model file missing at: {model_path}")
+        # Return None (instead of reading e.g. Japanese text with the English voice);
+        # /api/tts then tells the browser to use its own voice for this language.
+        hint = ("python system/download_models.py" if lang_key in TTS_FOLDERS
+                else f"python system/download_models.py --voices {lang_key}")
+        print(f"[TTS] No offline voice for '{language}' at {model_dir}; using browser voice. "
+              f"(Install with: {hint})")
         return None
 
     # VITS Piper configuration with espeak-ng data support
@@ -584,7 +599,7 @@ def speak(text, language=None):
     if not text:
         return
 
-    tts = get_sherpa_tts_engine()
+    tts = get_sherpa_tts_engine(language or "English")
     if tts:
         try:
             audio = tts.generate(text, sid=0, speed=1.0)
@@ -912,8 +927,8 @@ def main():
 
     voice_mode = ask_interview_mode()
     if voice_mode:
-        get_sherpa_asr_recognizer()
-        get_sherpa_tts_engine()  # Pre-load TTS engine during setup
+        get_sherpa_asr_recognizer(language)
+        get_sherpa_tts_engine(language)  # Pre-load TTS engine during setup
 
     answers = run_interview(candidate_name, language, questions, voice_mode=voice_mode)
     save_answers(candidate_name, answers, question_file, language)
