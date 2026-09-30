@@ -53,13 +53,14 @@ function triggerBrowserTTS(text, language) {
 
     const utterance = new SpeechSynthesisUtterance(text);
     const langMap = {
-        'English': 'en-US',
-        'Vietnamese': 'vi-VN',
-        'Spanish': 'es-ES',
-        'French': 'fr-FR'
+        'english': 'en-US', 'vietnamese': 'vi-VN', 'spanish': 'es-ES', 'french': 'fr-FR',
+        'german': 'de-DE', 'italian': 'it-IT', 'portuguese': 'pt-BR', 'russian': 'ru-RU',
+        'hindi': 'hi-IN', 'indonesian': 'id-ID', 'chinese': 'zh-CN', 'arabic': 'ar-SA',
+        'turkish': 'tr-TR', 'polish': 'pl-PL', 'ukrainian': 'uk-UA',
+        'japanese': 'ja-JP', 'korean': 'ko-KR', 'thai': 'th-TH'
     };
-    
-    utterance.lang = langMap[language] || 'en-US';
+
+    utterance.lang = langMap[String(language || '').toLowerCase()] || 'en-US';
     synth.speak(utterance);
 }
 
