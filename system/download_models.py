@@ -7,8 +7,9 @@ Standard library only, so it runs with any Python 3.8+ on Windows, macOS and Lin
 Models that are already in place are skipped, so it is safe to run repeatedly
 (the installers run it every time).
 
-    python download_models.py                      # the core set (see CORE below)
-    python download_models.py --voices spanish french   # extra offline voices
+    python download_models.py                      # core set + ALL extra offline voices (default)
+    python download_models.py --core-only          # only Whisper, Parakeet, English + Vietnamese voices
+    python download_models.py --voices spanish french   # core set + just these extra voices
     python download_models.py --whisper medium --force   # switch Whisper size (replaces the old one)
     python download_models.py --only asr tts       # just these folders
     python download_models.py --force              # re-download even if present
@@ -19,7 +20,7 @@ Folder layout produced (this is what chatbot.py expects):
     sherpa_models/asr_parakeet/  Parakeet-TDT 0.6B v3 (fast speech-to-text for en/es/fr/de/it/pt/ru)
     sherpa_models/tts/           English voice   (model.onnx, tokens.txt, espeak-ng-data/)
     sherpa_models/tts_vi/        Vietnamese voice
-    sherpa_models/tts_<language>/  optional extra voices, e.g. tts_spanish
+    sherpa_models/tts_<language>/  extra voices, e.g. tts_spanish (downloaded by default; see EXTRA_VOICES)
 """
 import argparse
 import os
@@ -50,8 +51,9 @@ WHISPER_SIZE = os.environ.get("AI_INTERVIEWER_WHISPER", "small")
 ENGLISH_VOICE = "vits-piper-en_US-lessac-medium"
 VIETNAMESE_VOICE = "vits-piper-vi_VN-vais1000-medium"
 
-# Optional extra offline voices (folder becomes tts_<language>, which chatbot.py looks for).
-# Chinese, Japanese, Korean and Thai use the browser voice instead (no Piper voice / different model type).
+# Extra offline voices, downloaded by default (about 60-75 MB each). The folder becomes tts_<language>.
+# Use --core-only to skip them, or --voices spanish french ... to pick some.
+# Japanese, Korean and Thai have no Piper voice, so they keep using the browser voice.
 EXTRA_VOICES = {
     "spanish":    "vits-piper-es_ES-davefx-medium",
     "french":     "vits-piper-fr_FR-siwis-medium",
@@ -61,6 +63,11 @@ EXTRA_VOICES = {
     "russian":    "vits-piper-ru_RU-irina-medium",
     "hindi":      "vits-piper-hi_IN-pratham-medium",
     "indonesian": "vits-piper-id_ID-news_tts-medium",
+    "chinese":    "vits-piper-zh_CN-huayan-medium",
+    "arabic":     "vits-piper-ar_JO-kareem-medium",
+    "turkish":    "vits-piper-tr_TR-dfki-medium",
+    "polish":     "vits-piper-pl_PL-gosia-medium",
+    "ukrainian":  "vits-piper-uk_UA-ukrainian_tts-medium",
 }
 
 
@@ -219,8 +226,10 @@ def main():
     global MODELS_DIR
     ap = argparse.ArgumentParser(description="Download Sherpa-ONNX speech models for the AI Interviewer.")
     ap.add_argument("--whisper", default=WHISPER_SIZE, help="Whisper size: tiny, base, small, medium (default: %(default)s)")
-    ap.add_argument("--voices", nargs="*", default=[], metavar="LANG",
-                    help=f"extra offline voices: {', '.join(EXTRA_VOICES)}, or 'all'")
+    ap.add_argument("--voices", nargs="*", default=None, metavar="LANG",
+                    help=f"only these extra offline voices (default: all of them): {', '.join(EXTRA_VOICES)}")
+    ap.add_argument("--core-only", action="store_true",
+                    help="skip the extra language voices; install only Whisper, Parakeet, English and Vietnamese")
     ap.add_argument("--only", nargs="*", default=None, metavar="FOLDER", help="only these folders, e.g. asr tts")
     ap.add_argument("--force", action="store_true", help="re-download even if already installed")
     ap.add_argument("--list", action="store_true", help="show the plan and exit")
@@ -231,7 +240,14 @@ def main():
         MODELS_DIR = args.models_dir.resolve()
 
     specs = core_specs(args.whisper)
-    wanted = list(EXTRA_VOICES) if "all" in [v.lower() for v in args.voices] else [v.lower() for v in args.voices]
+    if args.core_only:
+        wanted = []
+    elif args.voices is None:
+        wanted = list(EXTRA_VOICES)                       # default: every extra voice
+    elif "all" in [v.lower() for v in args.voices]:
+        wanted = list(EXTRA_VOICES)
+    else:
+        wanted = [v.lower() for v in args.voices]
     for lang in wanted:
         if lang not in EXTRA_VOICES:
             ap.error(f"no extra voice for '{lang}'. Available: {', '.join(EXTRA_VOICES)}")
