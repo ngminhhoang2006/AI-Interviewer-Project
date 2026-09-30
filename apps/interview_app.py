@@ -33,6 +33,41 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max limit
 
+# ---------------------------------------------------------------------------
+# Interview languages offered on the Step 2 page.
+#   value : English name sent to the LLM / speech code. It is also lower-cased
+#           into file names and URLs, so keep it a single word (no spaces).
+#   label : what the candidate sees in the dropdown.
+#   tag   : BCP-47 tag for the browser's built-in voice, used when Sherpa has
+#           no voice installed for the language (see system/chatbot.py).
+# To add a language, add one line here AND an entry in LANGUAGE_CODES in
+# system/chatbot.py (that one tells Whisper which language to listen for).
+# ---------------------------------------------------------------------------
+SUPPORTED_LANGUAGES = [
+    {"value": "English",    "label": "English",                  "tag": "en-US"},
+    {"value": "Vietnamese", "label": "Vietnamese (Tiếng Việt)",  "tag": "vi-VN"},
+    {"value": "Chinese",    "label": "Chinese (中文)",            "tag": "zh-CN"},
+    {"value": "Japanese",   "label": "Japanese (日本語)",         "tag": "ja-JP"},
+    {"value": "Korean",     "label": "Korean (한국어)",           "tag": "ko-KR"},
+    {"value": "Spanish",    "label": "Spanish (Español)",        "tag": "es-ES"},
+    {"value": "French",     "label": "French (Français)",        "tag": "fr-FR"},
+    {"value": "German",     "label": "German (Deutsch)",         "tag": "de-DE"},
+    {"value": "Portuguese", "label": "Portuguese (Português)",   "tag": "pt-BR"},
+    {"value": "Italian",    "label": "Italian (Italiano)",       "tag": "it-IT"},
+    {"value": "Russian",    "label": "Russian (Русский)",        "tag": "ru-RU"},
+    {"value": "Hindi",      "label": "Hindi (हिन्दी)",             "tag": "hi-IN"},
+    {"value": "Indonesian", "label": "Indonesian (Bahasa Indonesia)", "tag": "id-ID"},
+    {"value": "Thai",       "label": "Thai (ไทย)",                "tag": "th-TH"},
+]
+LANGUAGE_BY_KEY = {l["value"].lower(): l["value"] for l in SUPPORTED_LANGUAGES}
+LANGUAGE_TAGS = {l["value"].lower(): l["tag"] for l in SUPPORTED_LANGUAGES}
+
+
+@app.context_processor
+def inject_languages():
+    """Makes `interview_languages` available to every template."""
+    return {"interview_languages": SUPPORTED_LANGUAGES}
+
 
 def get_candidate_dir(candidate_name: str) -> Path:
     safe_name = re.sub(r'[\\/*?:"<>|]', "", candidate_name).strip() or "Unknown_Candidate"
@@ -87,10 +122,13 @@ def upload_cv():
 def generate_questions():
     data = request.json or {}
     candidate_folder = data.get("candidate_folder")
-    language = data.get("language", "English")
+    # Only accept languages from SUPPORTED_LANGUAGES (also keeps odd values out of file names)
+    language = LANGUAGE_BY_KEY.get(str(data.get("language") or "English").strip().lower())
 
     if not candidate_folder:
         return jsonify({"error": "Missing candidate folder"}), 400
+    if not language:
+        return jsonify({"error": f"Unsupported language: {data.get('language')}"}), 400
 
     cand_dir = UPLOAD_FOLDER / candidate_folder
     cv_json_path = cand_dir / f"{candidate_folder}.json"
@@ -148,6 +186,7 @@ def interview_page(candidate, lang):
         "interview.html",
         candidate=candidate,
         language=lang,
+        language_tag=LANGUAGE_TAGS.get(lang.lower(), "en-US"),
         questions=extracted_questions
     )
 
