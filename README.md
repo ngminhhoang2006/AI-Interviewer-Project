@@ -54,7 +54,7 @@ The website also allows applicants to make their own accounts to get their own p
 
 
 ## How to use the website
-To see and use the website for yourself, download the files, and run home_app.py in the "apps" folder.
+To see and use the website for yourself, download the setup files from the Releases page, and run the setup files appropriate for your OS. There are 2 different types of setup files for each OS: Terminal-based and GUI-based. Afterwards, you can run home_app.py in the "apps" folder. Alternatively, you can download the entire repo from github.
 
 For those who don't have an internet connection, We have included ai_interview_system.py that automates the entire process in the terminal/command prompt in one go. Alternatively, you can use each separate file in the following order:
 [Resume PDF] ➔ cv_reader.py ➔ questions_generator.py ➔ chatbot.py ➔ grade_interview.py ➔ [Evaluation Report]
