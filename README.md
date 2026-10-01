@@ -14,9 +14,9 @@ The website also allows applicants to make their own accounts to get their own p
 
 
 **STEP 2: Adaptive Question Synthesis**  
-  Consumes the structured JSON profile to analyze candidate seniority and technology stacks. It dynamically generates a customized set of technical, behavioral, and situational interview questions designed to probe specific background experience and potential gaps.
+  Consumes the structured JSON profile to analyze candidate seniority and technology stacks. It dynamically generates a customized set of technical, behavioral, and situational interview questions designed to probe specific background experience and potential gaps. The website also provides options for multiple different languages.
 
-<img width="893" height="575" alt="image" src="https://github.com/user-attachments/assets/0e6c9195-7eb3-4a81-b2bf-4eb05c9c9388" />
+<img width="889" height="876" alt="image" src="https://github.com/user-attachments/assets/561b95fa-0f6f-4881-91be-31354e47bef0" />
 
 
 **STEP 3:  — Interactive Interview Execution**  
