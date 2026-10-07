@@ -1,32 +1,32 @@
 # AI-Interviewer-Project
-This is an end-to-end, fully automated website designed to streamline the technical interview process using AI. The website uses python files (including Flask web apps) to perform the different tasks needed to perform the interview of an interviewee, as well as HTML, CSS and Javascript to build the format of the website.
+A fully automated website that runs technical interviews. Python files, including Flask web apps, handle each task in the interview process, and HTML, CSS and JavaScript build the site itself.
 
-The website also allows applicants to make their own accounts to get their own personalized experience of using the website, doing the interview and checking their results. All of their accounts' info are stored securely in a SQL database
+Applicants can make their own accounts to take the interview and check their results. Account info is stored in a SQL database.
 
 <img width="1857" height="919" alt="image" src="https://github.com/user-attachments/assets/e13e4c5b-54e6-4e99-b518-dd3d9daaa45c" />
 
 
 ## The Full Interview Process
-**STEP 1: Resume Parsing & Data Extraction**  
-  Extracts raw text from candidate PDF resumes and uses LLM-driven structured parsing to output clean, schema-compliant JSON. It normalizes key background details, including technical skill sets, professional work history, education, and notable projects.
+**Step 1: Resume parsing and data extraction**  
+  Extracts raw text from PDF resumes and uses an LLM to parse it into clean, schema-compliant JSON. The output covers technical skills, work history, education, and notable projects.
 
 <img width="972" height="637" alt="image" src="https://github.com/user-attachments/assets/678081cf-3a87-4e00-bdf8-3e34b9370656" />
 
 
-**STEP 2: Adaptive Question Synthesis**  
-  Consumes the structured JSON profile to analyze candidate seniority and technology stacks. It dynamically generates a customized set of technical, behavioral, and situational interview questions designed to probe specific background experience and potential gaps. The website also provides options for multiple different languages.
+**Step 2: Adaptive question synthesis**  
+  Reads the JSON profile to judge the candidate's seniority and tech stack, then generates technical, behavioral and situational questions that probe their specific experience and any gaps. The website supports multiple languages.
 
 <img width="889" height="876" alt="image" src="https://github.com/user-attachments/assets/561b95fa-0f6f-4881-91be-31354e47bef0" />
 
 
-**STEP 3:  — Interactive Interview Execution**  
-  Serves as the conversational engine that conducts the live interview session. It presents synthesized questions to the candidate sequentially, processes user inputs, handles real-time follow-ups or clarifications, and maintains session state to output a complete candidate response transcript.
+**Step 3: Interactive interview**  
+  The conversational engine for the live session. It asks the questions one at a time, handles follow-ups and clarifications in real time, keeps session state, and outputs a full transcript of the candidate's responses.
 
 <img width="838" height="754" alt="image" src="https://github.com/user-attachments/assets/409a2c67-2444-4814-993c-ac7c5ac12c73" />
 
 
-**STEP 4:  — Evaluation & Report Generation**  
-  Analyzes the final interview transcript against the generated question set and baseline candidate context. It scores answers based on technical accuracy, problem-solving depth, and communication clarity, yielding a comprehensive evaluation report with structured metrics and hiring recommendations.
+**Step 4: Evaluation and report generation**  
+  Checks the transcript against the generated questions and the candidate's background. Answers are scored on technical accuracy, problem-solving depth and communication clarity. The report includes structured metrics and hiring recommendations.
 
 <img width="1073" height="667" alt="image" src="https://github.com/user-attachments/assets/fbb27151-f704-468e-9f6f-3177587abc8b" />
 
@@ -34,19 +34,19 @@ The website also allows applicants to make their own accounts to get their own p
 
 ## Other features
 **Personal accounts**  
-  The interviewees can create their personal accounts that store their interview results privately and securely. This makes sure that all of their personal info won't be seen by potential malicious actors.
+  Interviewees can create accounts that store their interview results privately.
 
 <img width="536" height="724" alt="image" src="https://github.com/user-attachments/assets/b46f536c-0770-45a9-aed8-e546c827636c" />
 
 
 **Microphone testing**  
-  Before the interview, applicants can test their microphones on a separate page to make sure their interviews goes smoothly.
+  Applicants can test their microphone on a separate page before the interview, so the session goes smoothly.
 
 <img width="884" height="900" alt="image" src="https://github.com/user-attachments/assets/9b092519-197d-486d-9601-3506ce05b962" />
 
 
-**Check an interviewee's results**  
-  Use the checker page to see the reports of an interviewee's interview session. The reports include a score, and comments on the answers.
+**Checking an interviewee's results**  
+  The checker page shows the reports for an interviewee's session, including a score and comments on the answers.
 
 <img width="994" height="470" alt="image" src="https://github.com/user-attachments/assets/6cbf4520-1ee8-4262-ba59-e22a55101f43" />
 
@@ -54,21 +54,13 @@ The website also allows applicants to make their own accounts to get their own p
 
 
 ## How to use the website
-To see and use the website for yourself, download the setup files from the Releases page, and run the setup files appropriate for your OS. There are 2 different types of setup files for each OS: Terminal-based and GUI-based. Afterwards, you can run home_app.py in the "apps" folder. Alternatively, you can download the entire repo from github.
+To try the website, download the setup files from the Releases page and run the ones for your OS. Each OS has two types: terminal-based and GUI-based. Then run `home_app.py` in the `apps` folder. You can also download the whole repo from GitHub.
 
-For those who don't have an internet connection, We have included ai_interview_system.py that automates the entire process in the terminal/command prompt in one go. Alternatively, you can use each separate file in the following order:
-[Resume PDF] ➔ cv_reader.py ➔ questions_generator.py ➔ chatbot.py ➔ grade_interview.py ➔ [Evaluation Report]
+No internet connection? `ai_interview_system.py` runs the entire process in the terminal in one go. You can also run the files separately, in this order:
 
-We have also included an interviewee_report_checker.py that prints out the results of the desired applicant's interview afterwards.
+[Resume PDF] ➔ `cv_reader.py` ➔ `questions_generator.py` ➔ `chatbot.py` ➔ `grade_interview.py` ➔ [Evaluation Report]
+
+`interviewee_report_checker.py` prints the results of a chosen applicant's interview afterwards.
 
 ## Demo
 You can see a demo of the project working at: https://drive.google.com/drive/folders/1HjoeWL_DjMnqFa8DV3Nbbc26OssA0fYs?usp=sharing
-
-
-
-
-
-
-
-
-
