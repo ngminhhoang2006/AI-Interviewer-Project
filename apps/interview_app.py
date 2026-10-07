@@ -18,7 +18,7 @@ import grade_interview
 import numpy as np
 
 from flask_login import current_user, login_required
-from models import db, InterviewResult
+from models import db, InterviewResult, ApplicantProfile
 
 
 app = Flask(
@@ -41,7 +41,9 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max limit
 #   tag   : BCP-47 tag for the browser's built-in voice, used when Sherpa has
 #           no voice installed for the language (see system/chatbot.py).
 # To add a language, add one line here AND an entry in LANGUAGE_CODES in
-# system/chatbot.py (that one tells Whisper which language to listen for).
+# WHISPER_LANG_CODES in system/chatbot.py (that one tells Whisper which language to listen for).
+# An offline voice is used if system/sherpa_models/tts_<value in lower case>/ exists
+# (python system/download_models.py); otherwise the browser voice is used.
 # ---------------------------------------------------------------------------
 SUPPORTED_LANGUAGES = [
     {"value": "English",    "label": "English",                  "tag": "en-US"},
@@ -57,6 +59,10 @@ SUPPORTED_LANGUAGES = [
     {"value": "Russian",    "label": "Russian (Русский)",        "tag": "ru-RU"},
     {"value": "Hindi",      "label": "Hindi (हिन्दी)",             "tag": "hi-IN"},
     {"value": "Indonesian", "label": "Indonesian (Bahasa Indonesia)", "tag": "id-ID"},
+    {"value": "Arabic",     "label": "Arabic (العربية)",          "tag": "ar-SA"},
+    {"value": "Turkish",    "label": "Turkish (Türkçe)",         "tag": "tr-TR"},
+    {"value": "Polish",     "label": "Polish (Polski)",          "tag": "pl-PL"},
+    {"value": "Ukrainian",  "label": "Ukrainian (Українська)",   "tag": "uk-UA"},
     {"value": "Thai",       "label": "Thai (ไทย)",                "tag": "th-TH"},
 ]
 LANGUAGE_BY_KEY = {l["value"].lower(): l["value"] for l in SUPPORTED_LANGUAGES}
@@ -74,6 +80,34 @@ def get_candidate_dir(candidate_name: str) -> Path:
     cand_dir = UPLOAD_FOLDER / safe_name
     cand_dir.mkdir(parents=True, exist_ok=True)
     return cand_dir
+
+
+CV_LIST_FIELDS = ["education", "experience", "projects", "skills", "certifications", "awards"]
+
+
+def ensure_applicant_table():
+    """Create applicant_profiles if this database doesn't have it yet (fresh or older install).
+    No-op when the table exists, so it is safe to call every time."""
+    ApplicantProfile.__table__.create(bind=db.engine, checkfirst=True)
+
+
+def save_applicant_profile(user_id, result_id, cv_json_path):
+    """Create/update the applicant_profiles row linked to this user and interview result."""
+    if not cv_json_path.exists():
+        return
+    ensure_applicant_table()
+    cv = json.loads(cv_json_path.read_text(encoding="utf-8"))
+    profile = ApplicantProfile.query.filter_by(interview_result_id=result_id).first()
+    if profile is None:
+        profile = ApplicantProfile(user_id=user_id, interview_result_id=result_id)
+        db.session.add(profile)
+    profile.full_name = (cv.get("name") or "").replace("\u00a0", " ").strip() or None
+    profile.email = cv.get("email")
+    profile.phone = cv.get("phone")
+    profile.address = (cv.get("address") or "").replace("\u00a0", " ").strip() or None
+    profile.age = cv.get("age")
+    for field in CV_LIST_FIELDS:
+        setattr(profile, field, json.dumps(cv.get(field) or [], ensure_ascii=False))
 
 
 @app.route("/")
@@ -301,7 +335,7 @@ def text_to_speech():
     return jsonify({
         "status": "fallback",
         "use_browser_tts": True,
-        "message": "Sherpa TTS generation failed."
+        "message": chatbot.TTS_LAST_ERROR.get(str(language).lower().strip(), "Sherpa TTS generation failed.")
     }), 200
 
 
@@ -377,6 +411,7 @@ def report_page(candidate):
                 existing_record.interview_score = avg_score        # Interview Score = Average per-question score
                 existing_record.language = selected_language
                 existing_record.feedback_reason = str(feedback)
+                result_row = existing_record
             else:
                 # Insert new row
                 new_result = InterviewResult(
@@ -388,12 +423,23 @@ def report_page(candidate):
                     feedback_reason=str(feedback)
                 )
                 db.session.add(new_result)
+                result_row = new_result
 
             db.session.commit()
             print(f"[DB] Successfully saved interview result (CV: {overall_score}, Interview: {avg_score}) for {current_user.username}")
         except Exception as e:
             db.session.rollback()
             print(f"[DB Error] Could not save result to database: {e}")
+            result_row = None
+
+        # The applicant profile is saved separately, so a problem here can never lose the interview result.
+        if result_row is not None:
+            try:
+                save_applicant_profile(current_user.id, result_row.id, cand_dir / f"{candidate}.json")
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"[DB Error] Could not save applicant profile: {e}")
 
     # 3. Render template
     return render_template("report.html", report=report)
