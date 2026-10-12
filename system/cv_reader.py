@@ -17,8 +17,24 @@ def find_pdf(pdf_name):
     return matches[0]
 
 
+def _ocr_text(document):
+    """Fallback for scanned / image-only PDFs. Needs Tesseract installed on the machine;
+    returns "" if it is not available."""
+    for lang in ("vie+eng", "eng"):
+        try:
+            text = ""
+            for page in document:
+                textpage = page.get_textpage_ocr(language=lang, dpi=200, full=True)
+                text += page.get_text(textpage=textpage) + "\n"
+            if text.strip():
+                return text
+        except Exception:
+            continue
+    return ""
+
+
 def extract_text(pdf_path):
-    """Extract all text from a PDF."""
+    """Extract all text from a PDF (with an OCR fallback for scanned PDFs)."""
 
     document = pymupdf.open(pdf_path)
 
@@ -27,9 +43,44 @@ def extract_text(pdf_path):
     for page in document:
         text += page.get_text() + "\n"
 
+    if len(text.strip()) < 20:
+        text = _ocr_text(document) or text
+
     document.close()
 
     return text
+
+
+_NAME_LABEL = re.compile(
+    r"^\s*(?:full\s*name|name|họ\s*(?:và\s*)?tên|tên)\s*[:\-–]\s*(\S.*?)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_NOT_A_NAME = {
+    "curriculum vitae", "resume", "cv", "profile", "contact", "summary", "objective",
+    "about me", "education", "experience", "skills", "projects", "hồ sơ", "sơ yếu lý lịch",
+    "thông tin cá nhân", "liên hệ", "giới thiệu",
+}
+
+
+def _looks_like_name(line):
+    line = (line or "").strip()
+    if not line or len(line) > 60 or len(line.split()) > 5:
+        return False
+    if re.search(r"[@\d]|https?://|www\.|linkedin|github", line, re.IGNORECASE):
+        return False
+    return line.lower() not in _NOT_A_NAME
+
+
+def _guess_name(text):
+    """Name from a 'Name: ...' / 'Họ và tên: ...' line, else the first line that looks like one."""
+    text = (text or "").replace("\u00a0", " ")
+    match = _NAME_LABEL.search(text)
+    if match and _looks_like_name(match.group(1)):
+        return match.group(1).strip()
+    for line in text.splitlines()[:15]:
+        if _looks_like_name(line):
+            return line.strip()
+    return None
 
 
 def extract_applicant_info(text):
@@ -154,32 +205,7 @@ def extract_applicant_info(text):
     # NAME
     # --------------------------------------------------
 
-    name_patterns = [
-        r"(?:full\s*name|name|họ\s*và\s*tên|họ\s*tên|tên)\s*:?\s*([^\n]+)"
-    ]
-
-    for pattern in name_patterns:
-        match = re.search(
-            pattern,
-            text,
-            re.IGNORECASE
-        )
-
-        if match:
-            info["name"] = match.group(1).strip()
-            break
-
-    # If no explicit name label exists,
-    # assume the first non-empty line is the name.
-    if not info["name"]:
-        lines = [
-            line.strip()
-            for line in text.splitlines()
-            if line.strip()
-        ]
-
-        if lines:
-            info["name"] = lines[0]
+    info["name"] = _guess_name(text)
 
     # --------------------------------------------------
     # SECTION EXTRACTION

@@ -93,8 +93,9 @@ def stage_cv_reader(pdf_name: str | None) -> tuple[Path, dict]:
 # ======================================================================
 
 def stage_questions_generator(
-    cv_json_path: Path, resume: dict, language_choice: str | None
-) -> tuple[Path, str, str]:
+    cv_json_path: Path, resume: dict, language_choice: str | None,
+    job_position: str | None = None,
+) -> tuple[Path, str, str, str]:
     banner("STEP 2/4 — Generating Interview Questions")
 
     if language_choice is None:
@@ -114,7 +115,15 @@ def stage_questions_generator(
         # Allow a language name to be passed directly via --language
         language = language_choice
 
-    questions = questions_generator.generate_questions(resume, language=language)
+    if job_position is None:
+        job_position = input(
+            "Job position applying for (e.g. Software Engineer, AI Researcher): "
+        )
+    job_position = questions_generator.clean_job_position(job_position)
+
+    questions = questions_generator.generate_questions(
+        resume, language=language, job_position=job_position
+    )
 
     raw_name = resume.get("name", "candidate")
     clean_name = raw_name.replace("\u00a0", " ").strip()
@@ -122,6 +131,7 @@ def stage_questions_generator(
     output = {
         "candidate": clean_name,
         "language": language,
+        "job_position": job_position,
         "source_file": cv_json_path.name,
         "questions": questions,
     }
@@ -133,7 +143,7 @@ def stage_questions_generator(
 
     questions_generator.save_questions(output, questions_path)
 
-    return questions_path, clean_name, language
+    return questions_path, clean_name, language, job_position
 
 
 # ======================================================================
@@ -236,7 +246,10 @@ def parse_args():
         help=f"Ollama model to use for grading (default: {grade_interview.OLLAMA_MODEL}).",
     )
     parser.add_argument(
-        "--job-title", default="AI Engineer", help="Job title the candidate is interviewing for."
+        "--job-title",
+        default=None,
+        help="Job position the candidate is applying for (e.g. 'Software Engineer'). "
+        "Used to tailor the questions and the grading. Prompted for if omitted.",
     )
     parser.add_argument(
         "--job-requirements",
@@ -258,13 +271,15 @@ def main():
     print("This will run: CV parsing -> question generation -> interview -> grading.\n")
 
     cv_json_path, applicant = stage_cv_reader(args.pdf)
-    questions_path, candidate_name, language = stage_questions_generator(
-        cv_json_path, applicant, args.language
+    questions_path, candidate_name, language, job_position = stage_questions_generator(
+        cv_json_path, applicant, args.language, args.job_title
     )
     answers_path = stage_chatbot(
         questions_path, candidate_name, language, voice_arg=args.voice
     )
-    stage_grade_interview(answers_path, args.model, args.job_title, args.job_requirements)
+    stage_grade_interview(
+        answers_path, args.model, job_position or "AI Engineer", args.job_requirements
+    )
 
 
 if __name__ == "__main__":
