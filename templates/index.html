@@ -26,9 +26,37 @@
 
     <!-- Step 2: Select Language & Generate -->
     <div id="step-questions" class="hidden">
-        <h3>Step 2: Generate Questions</h3>
-        <p class="candidate-info">Candidate: <strong id="candidateName"></strong></p>
+        <h3>Step 2: Position &amp; Language</h3>
+        <div class="form-group">
+            <label for="candidateName">Candidate Name</label>
+            <input type="text" id="candidateName" class="custom-input" maxlength="100"
+                   autocomplete="off" placeholder="Your full name">
+        </div>
         
+        <div class="form-group">
+            <label for="jobPosition">Position You're Applying For</label>
+            <input type="text" id="jobPosition" class="custom-input" list="jobPositionSuggestions"
+                   maxlength="100" required autocomplete="off"
+                   placeholder="e.g. Software Engineer, AI Researcher">
+            <datalist id="jobPositionSuggestions">
+                <option value="Software Engineer"></option>
+                <option value="AI Researcher"></option>
+                <option value="Machine Learning Engineer"></option>
+                <option value="Data Scientist"></option>
+                <option value="Data Analyst"></option>
+                <option value="Data Engineer"></option>
+                <option value="Frontend Developer"></option>
+                <option value="Backend Developer"></option>
+                <option value="Full-Stack Developer"></option>
+                <option value="DevOps Engineer"></option>
+                <option value="Mobile Developer"></option>
+                <option value="QA Engineer"></option>
+                <option value="Cybersecurity Analyst"></option>
+                <option value="Product Manager"></option>
+            </datalist>
+            <small class="field-hint">Your interview questions will be tailored to this role. Type any position, or pick a suggestion.</small>
+        </div>
+
         <div class="form-group">
             <label for="language">Interview Language</label>
             <div class="select-wrapper">
