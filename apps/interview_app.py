@@ -147,6 +147,8 @@ def upload_cv():
         "status": "success",
         "candidate": raw_name,
         "candidate_folder": cand_dir.name,
+        "text_extracted": bool(text.strip()),
+        "name_detected": bool(applicant.get("name")),
         "applicant": applicant
     })
 
@@ -164,6 +166,10 @@ def generate_questions():
     if not language:
         return jsonify({"error": f"Unsupported language: {data.get('language')}"}), 400
 
+    job_position = questions_generator.clean_job_position(data.get("job_position"))
+    if not job_position:
+        return jsonify({"error": "Please enter the position you are applying for."}), 400
+
     cand_dir = UPLOAD_FOLDER / candidate_folder
     cv_json_path = cand_dir / f"{candidate_folder}.json"
 
@@ -173,12 +179,25 @@ def generate_questions():
     with open(cv_json_path, "r", encoding="utf-8") as f:
         resume = json.load(f)
 
-    raw_questions = questions_generator.generate_questions(resume, language=language)
-    clean_name = resume.get("name", candidate_folder).replace("\u00a0", " ").strip()
+    # The name can be corrected on the setup page (e.g. when it could not be read from the PDF)
+    typed_name = re.sub(r"\s+", " ", str(data.get("candidate_name") or "")).strip()[:100]
+    if typed_name and typed_name != (resume.get("name") or ""):
+        resume["name"] = typed_name
+        with open(cv_json_path, "w", encoding="utf-8") as f:
+            json.dump(resume, f, indent=4, ensure_ascii=False)
+
+    try:
+        raw_questions = questions_generator.generate_questions(resume, language=language, job_position=job_position)
+    except Exception as e:
+        app.logger.exception("Question generation failed")
+        return jsonify({"error": questions_generator.describe_generation_error(e, language)}), 500
+
+    clean_name = (resume.get("name") or candidate_folder).replace("\u00a0", " ").strip()
 
     output = {
         "candidate": clean_name,
         "language": language,
+        "job_position": job_position,
         "source_file": cv_json_path.name,
         "questions": raw_questions,
     }
@@ -349,8 +368,16 @@ def api_save_answers():
     cand_dir = UPLOAD_FOLDER / candidate_folder
     questions_file = cand_dir / f"{candidate_folder}_questions_{language.lower()}.json"
 
+    # Carry the job position chosen on the setup page over to the answers file (used for grading)
+    job_position = ""
+    try:
+        job_position = json.loads(questions_file.read_text(encoding="utf-8")).get("job_position", "")
+    except (OSError, ValueError):
+        pass
+
     output = {
         "candidate": candidate_folder,
+        "job_position": job_position,
         "source_questions": questions_file.name,
         "interview_language": language,
         "total_answered": len(answers),
@@ -380,7 +407,7 @@ def report_page(candidate):
     report = grade_interview.grade_interview(
         data=data,
         model=grade_interview.OLLAMA_MODEL,
-        job_title="AI Engineer",
+        job_title=data.get("job_position") or "AI Engineer",
         job_requirements=None
     )
     
