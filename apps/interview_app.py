@@ -19,6 +19,7 @@ import numpy as np
 
 from flask_login import current_user, login_required
 from models import db, InterviewResult, ApplicantProfile
+import score_store
 
 
 app = Flask(
@@ -393,6 +394,87 @@ def api_save_answers():
         "redirect": url_for("report_page", candidate=candidate_folder)
     })
 
+def _as_score(value):
+    """Turns a score from the grader (8, 8.0, "8", "8/10", None) into a float, or None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        m = re.search(r"\d+(?:\.\d+)?", value)
+        return float(m.group()) if m else None
+    return None
+
+
+def extract_report_scores(report):
+    """(overall_score, average_per_question_score, feedback) from grade_interview()'s report.
+    The grader returns {"average_score": ..., "overall": {"overall_score": ..., "summary": ...}}."""
+    overall = report.get("overall") if isinstance(report.get("overall"), dict) else {}
+    overall_score = _as_score(overall.get("overall_score", report.get("overall_score")))
+    avg_score = _as_score(report.get(
+        "average_score", report.get("average_per_question_score", report.get("avg_score"))))
+    feedback = (overall.get("summary") or report.get("summary") or report.get("overall_feedback")
+                or "Completed interview evaluation.")
+    return overall_score, avg_score, str(feedback)
+
+
+def save_interview_scores(user_id, candidate, language, report):
+    """Stores the grades in interview_results and VERIFIES they really are in the database file.
+    1) normal save through SQLAlchemy;
+    2) if that raises, or the stored scores don't match the report: a direct SQLite write, then the
+       backfill (reads the report files on disk).
+    Never raises. Returns (interview_result_id or None, status) with status "saved",
+    "saved_via_fallback" or "failed"."""
+    overall, avg, feedback = extract_report_scores(report)
+    db_file = db.engine.url.database          # None for an in-memory database
+
+    def verified():
+        """The row as it is in the database file now (fresh connection), if its scores match the report."""
+        if not db_file:
+            return None
+        row = score_store.read_result(db_file, user_id, candidate)
+        return row if row and score_store.scores_match(row, (overall, avg)) else None
+
+    # 1. normal save
+    try:
+        record = InterviewResult.query.filter_by(user_id=user_id, candidate_name=candidate).first()
+        if record is None:
+            record = InterviewResult(user_id=user_id, candidate_name=candidate)
+            db.session.add(record)
+        record.language = language
+        record.cv_score = overall            # CV Score = Overall score
+        record.interview_score = avg         # Interview Score = Average per-question score
+        record.feedback_reason = feedback
+        db.session.commit()
+
+        if not db_file:
+            return record.id, "saved"
+        row = verified()
+        if row:
+            print(f"[DB] Saved interview result (CV: {overall}, Interview: {avg}) for {candidate}")
+            return row[0], "saved"
+        problem = "the scores stored in the database do not match the report"
+    except Exception as e:
+        db.session.rollback()
+        problem = str(e)
+    print(f"[DB] Saving the scores failed ({problem}). Trying the fallback...")
+
+    # 2. fallback: direct SQLite write + backfill from the report files on disk
+    try:
+        score_store.upsert_result(db_file, user_id, candidate, language, overall, avg, feedback)
+        score_store.backfill(db_file, UPLOAD_FOLDER, names=[candidate])
+        db.session.expire_all()
+        row = verified()
+        if row:
+            print(f"[DB] Fallback saved the interview result for {candidate}")
+            return row[0], "saved_via_fallback"
+    except Exception as e:
+        print(f"[DB Error] Fallback failed too: {e}")
+    print(f"[DB Error] Could not store the scores for {candidate}. "
+          f"They are in the report files; run: python backfill_scores.py")
+    return None, "failed"
+
+
 @app.route("/report/<candidate>")
 def report_page(candidate):
     cand_dir = UPLOAD_FOLDER / candidate
@@ -416,60 +498,23 @@ def report_page(candidate):
     md_path = cand_dir / f"{candidate}_answers_report.md"
     grade_interview.write_markdown_report(report, md_path)
 
-    # 2. SAVE TO DATABASE FOR CURRENT LOGGED-IN USER
+    # 2. SAVE TO DATABASE FOR CURRENT LOGGED-IN USER (verified, with fallbacks)
+    save_status = "not_logged_in"
     if current_user.is_authenticated:
-        try:
-            # Extract scores from generated report dict
-            overall_score = report.get("overall_score")
-            avg_score = report.get("average_per_question_score") or report.get("avg_score")
-            
-            feedback = report.get("summary") or report.get("overall_feedback") or "Completed interview evaluation."
-            selected_language = data.get("interview_language", "English")
-
-            # Check if record already exists for this user/candidate to update or create
-            existing_record = InterviewResult.query.filter_by(
-                user_id=current_user.id, 
-                candidate_name=candidate
-            ).first()
-
-            if existing_record:
-                # Update existing row
-                existing_record.cv_score = overall_score          # CV Score = Overall score
-                existing_record.interview_score = avg_score        # Interview Score = Average per-question score
-                existing_record.language = selected_language
-                existing_record.feedback_reason = str(feedback)
-                result_row = existing_record
-            else:
-                # Insert new row
-                new_result = InterviewResult(
-                    user_id=current_user.id,
-                    candidate_name=candidate,
-                    language=selected_language,
-                    cv_score=overall_score,                        # CV Score = Overall score
-                    interview_score=avg_score,                     # Interview Score = Average per-question score
-                    feedback_reason=str(feedback)
-                )
-                db.session.add(new_result)
-                result_row = new_result
-
-            db.session.commit()
-            print(f"[DB] Successfully saved interview result (CV: {overall_score}, Interview: {avg_score}) for {current_user.username}")
-        except Exception as e:
-            db.session.rollback()
-            print(f"[DB Error] Could not save result to database: {e}")
-            result_row = None
+        result_id, save_status = save_interview_scores(
+            current_user.id, candidate, data.get("interview_language", "English"), report)
 
         # The applicant profile is saved separately, so a problem here can never lose the interview result.
-        if result_row is not None:
+        if result_id is not None:
             try:
-                save_applicant_profile(current_user.id, result_row.id, cand_dir / f"{candidate}.json")
+                save_applicant_profile(current_user.id, result_id, cand_dir / f"{candidate}.json")
                 db.session.commit()
             except Exception as e:
                 db.session.rollback()
                 print(f"[DB Error] Could not save applicant profile: {e}")
 
     # 3. Render template
-    return render_template("report.html", report=report)
+    return render_template("report.html", report=report, save_status=save_status)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
