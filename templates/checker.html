@@ -40,8 +40,8 @@
                 {% endif %}
                 <td><strong>{{ r.candidate_name }}</strong></td>
                 <td>{{ r.language }}</td>
-                <td>{{ r.cv_score if r.cv_score else 'N/A' }}</td>
-                <td>{{ r.interview_score if r.interview_score else 'N/A' }}</td>
+                <td>{{ r.cv_score if r.cv_score is not none else 'N/A' }}</td>
+                <td>{{ r.interview_score if r.interview_score is not none else 'N/A' }}</td>
                 <td>{{ r.feedback_reason }}</td>
                 <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             </tr>

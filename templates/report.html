@@ -6,6 +6,14 @@
 <div class="card">
     <h1>Interview Evaluation Report</h1>
     <h2>Candidate: {{ report.candidate }}</h2>
+
+    {% if save_status in ('saved', 'saved_via_fallback') %}
+    <p class="save-note save-ok">&#10003; These scores have been saved to the interview records.</p>
+    {% elif save_status == 'failed' %}
+    <p class="save-note save-warn">&#9888; These scores could not be saved to the interview records. They are kept in the report files; an administrator can run <code>python backfill_scores.py</code> to add them.</p>
+    {% elif save_status == 'not_logged_in' %}
+    <p class="save-note save-warn">&#9888; You are not logged in, so these scores were not added to the interview records. <a href="{{ url_for('login') }}">Log in</a> and open this report again to save them.</p>
+    {% endif %}
     <p><strong>Job Title:</strong> {{ report.job_title }} | <strong>Model:</strong> {{ report.model_used }}</p>
 
     <div class="score-box">
