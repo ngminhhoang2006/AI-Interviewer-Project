@@ -846,3 +846,88 @@ button.btn-teal-sm:hover {
     font-size: 0.8rem;
     color: #64748b;
 }
+
+/* Confirmation dialog (nav bar: logout / leave interview) */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.55);
+    animation: confirmFade 0.12s ease-out;
+}
+
+.confirm-dialog {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #1e293b;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.confirm-title {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+}
+
+.confirm-message {
+    margin: 0 0 20px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #475569;
+}
+
+.confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm-btn {
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.confirm-cancel {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+.confirm-cancel:hover { background: #e2e8f0; }
+
+.confirm-ok { background: #0d9488; color: #ffffff; }
+.confirm-ok:hover { background: #0f766e; }
+.confirm-ok.danger { background: #dc2626; }
+.confirm-ok.danger:hover { background: #b91c1c; }
+
+.confirm-btn:focus-visible {
+    outline: 3px solid rgba(13, 148, 136, 0.45);
+    outline-offset: 2px;
+}
+
+@keyframes confirmFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Report page: were the scores saved? */
+.save-note {
+    margin: 8px 0 16px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.92rem;
+}
+
+.save-ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.save-warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
