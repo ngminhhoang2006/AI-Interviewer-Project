@@ -110,7 +110,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 stream.getTracks().forEach(track => track.stop());
             }, 3000);
         } catch (err) {
-            alert("Failed to record sample audio.");
+            alertDialog({
+                title: "Couldn't record audio",
+                message: "Failed to record a sample. Check that a microphone is connected and that " +
+                         "this site is allowed to use it, then try again.",
+            });
             btnRecordTest.innerText = "🎤 Record 3s Sample";
             btnRecordTest.disabled = false;
         }

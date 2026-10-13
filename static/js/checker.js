@@ -7,7 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const resultsDiv = document.getElementById("searchResults");
         const reportDiv = document.getElementById("reportContainer");
 
-        if (!query) return alert("Please enter a candidate name.");
+        if (!query) {
+            return alertDialog({
+                title: "Candidate name required",
+                message: "Please enter a candidate name to search.",
+            }).then(() => searchInput.focus());
+        }
 
         resultsDiv.innerHTML = "Searching disk records...";
         reportDiv.classList.add("hidden");
@@ -58,7 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({ folder_path: folderPath, report_filename: reportFilename })
         });
         const data = await res.json();
-        if (data.error) return alert(data.error);
+        if (data.error) {
+            return alertDialog({ title: "Couldn't open the report", message: String(data.error) });
+        }
 
         document.getElementById("reportTitle").innerText = `Report: ${data.candidate}`;
         document.getElementById("reportContent").innerHTML = data.content_html;

@@ -8,6 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const candidate = configEl.dataset.candidate || "";
     const language = configEl.dataset.language || "English";
 
+    // Read by confirm.js: nav bar links ask for confirmation while this is true
+    window.interviewInProgress = true;
+
     let currentQIndex = 0;
     let answers = [];
     let isFollowUp = false;
@@ -141,7 +144,11 @@ document.addEventListener("DOMContentLoaded", () => {
             recordingStatus.innerText = "Listening...";
         } catch (err) {
             console.error("Microphone access error:", err);
-            alert("Microphone access is required for voice input.");
+            alertDialog({
+                title: "Microphone unavailable",
+                message: "Microphone access is required for voice input. Please allow microphone " +
+                         "access in your browser, or switch to Text Mode.",
+            });
         }
     }
 
@@ -219,16 +226,26 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btnRecord").onclick = toggleRecording;
 
     document.getElementById("btnSubmit").onclick = async () => {
+        if (document.querySelector(".confirm-overlay")) return; // a dialog is already open
         if (isRecording) stopRecording();
         stopAllSpeech();
 
         const answer = document.getElementById("answerInput").value.trim();
         if (!answer) {
-            alert("Please enter an answer or record your voice response.");
+            await alertDialog({
+                title: "Answer required",
+                message: "Please type an answer or record your voice response before submitting.",
+            });
+            document.getElementById("answerInput").focus();
             return;
         }
 
-        const isConfirmed = confirm("Are you sure you want to submit this answer?");
+        const isConfirmed = await confirmDialog({
+            title: "Submit this answer?",
+            message: "Once submitted, you can't go back and change this answer.",
+            confirmText: "Submit answer",
+            cancelText: "Keep editing",
+        });
         if (!isConfirmed) {
             return;
         }
@@ -307,6 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         const data = await res.json();
         if (res.ok) {
+            window.interviewInProgress = false;
             window.location.href = data.redirect;
         }
     }
