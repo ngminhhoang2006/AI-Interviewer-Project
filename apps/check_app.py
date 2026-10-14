@@ -35,21 +35,19 @@ def flatten_text(text: str) -> str:
 
 
 def find_candidate_folders(name: str) -> list[Path]:
-    """Finds folders matching candidate search query across PROJECT_ROOT and uploads."""
+    """Finds candidate folders (directly inside the uploads folder) matching the search query."""
     target_flat = flatten_text(name)
-    search_roots = [PROJECT_ROOT, UPLOAD_FOLDER]
+    if not target_flat or not UPLOAD_FOLDER.exists():
+        return []
+
     matches = []
+    for d in UPLOAD_FOLDER.iterdir():
+        if d.is_dir():
+            folder_flat = flatten_text(d.name)
+            if folder_flat and target_flat in folder_flat:
+                matches.append(d)
 
-    for root in search_roots:
-        if root.exists():
-            for d in root.rglob("*"):
-                if d.is_dir():
-                    folder_flat = flatten_text(d.name)
-                    if folder_flat and (target_flat == folder_flat or target_flat in folder_flat):
-                        matches.append(d)
-
-    # Return unique paths
-    return sorted(list(set(matches)), key=lambda x: str(x))
+    return sorted(matches, key=lambda x: str(x))
 
 
 def find_report_files(folder: Path) -> list[Path]:
@@ -167,12 +165,13 @@ def get_report():
     report_filename = data.get("report_filename", "")
 
     folder_path = (PROJECT_ROOT / relative_folder).resolve()
+    report_path = (folder_path / report_filename).resolve()
 
-    # Security check to avoid directory traversal
-    if not str(folder_path).startswith(str(PROJECT_ROOT)):
+    # Only report files inside the uploads folder can be opened (also blocks "../" tricks)
+    if (UPLOAD_FOLDER.resolve() not in report_path.parents
+            or not report_path.name.endswith("_answers_report.md")):
         return jsonify({"error": "Access denied"}), 403
 
-    report_path = folder_path / report_filename
     if not report_path.exists():
         return jsonify({"error": "Report file not found."}), 404
 
