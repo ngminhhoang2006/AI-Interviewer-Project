@@ -28,7 +28,6 @@
                 <th>Language</th>
                 <th>CV Score</th>
                 <th>Interview Score</th>
-                <th>Feedback</th>
                 <th>Date</th>
             </tr>
         </thead>
@@ -42,7 +41,6 @@
                 <td>{{ r.language }}</td>
                 <td>{{ r.cv_score if r.cv_score is not none else 'N/A' }}</td>
                 <td>{{ r.interview_score if r.interview_score is not none else 'N/A' }}</td>
-                <td>{{ r.feedback_reason }}</td>
                 <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             </tr>
             {% endfor %}
