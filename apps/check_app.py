@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import html
 import re
 import unicodedata
 from pathlib import Path
@@ -34,6 +35,41 @@ def flatten_text(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", stripped.casefold())
 
 
+MAX_NAME_LEN = 100
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def validate_name(raw) -> str:
+    """Validates a user-supplied candidate name. Raises ValueError with a safe message.
+
+    This is input hygiene, NOT the SQL injection defence: quotes are allowed on purpose
+    (names like O'Brien are legitimate). Injection is prevented by always passing user
+    input to SQLite as bound parameters, never by building SQL strings.
+    """
+    if not isinstance(raw, str):
+        raise ValueError("Candidate name must be text.")
+    name = raw.strip()
+    if not name:
+        raise ValueError("Please enter a candidate name.")
+    if len(name) > MAX_NAME_LEN:
+        raise ValueError(f"Candidate name is too long (max {MAX_NAME_LEN} characters).")
+    if _CONTROL_CHARS.search(name):
+        raise ValueError("Candidate name contains invalid characters.")
+    return name
+
+
+def _open_readonly_db() -> sqlite3.Connection:
+    """The checker only ever reads, so open the database read-only (least privilege)."""
+    conn = sqlite3.connect(f"{DB_PATH.as_uri()}?mode=ro", uri=True, timeout=10)
+    # Lets SQLite apply the same name normalisation as the rest of the app, inside the query.
+    conn.create_function(
+        "flatten", 1,
+        lambda v: flatten_text(v) if isinstance(v, str) else "",
+        deterministic=True,
+    )
+    return conn
+
+
 def find_candidate_folders(name: str) -> list[Path]:
     """Finds candidate folders (directly inside the uploads folder) matching the search query."""
     target_flat = flatten_text(name)
@@ -60,35 +96,42 @@ def index():
     return render_template("checker.html")
 
 def get_candidate_scores(candidate_name: str):
-    """Fetch scores directly from SQLite interview_results table with text flattening."""
-    if not DB_PATH.exists():
-        return {"cv_score": "N/A", "interview_score": "N/A", "feedback": "", "date": ""}
+    """Fetch scores from the SQLite interview_results table (name matched with text flattening).
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
+    The name is passed as a bound parameter, so it is only ever treated as data.
+    """
+    empty = {"cv_score": "N/A", "interview_score": "N/A", "feedback": "", "date": ""}
+    target_flat = flatten_text(candidate_name)
+    if not target_flat or not DB_PATH.exists():
+        return empty
+
+    conn = _open_readonly_db()
     try:
-        cursor.execute(
-            "SELECT candidate_name, cv_score, interview_score, feedback_reason, created_at FROM interview_results"
-        )
-        rows = cursor.fetchall()
+        row = conn.execute(
+            "SELECT candidate_name, cv_score, interview_score, feedback_reason, created_at "
+            "FROM interview_results "
+            "WHERE flatten(candidate_name) != '' "
+            "  AND (instr(flatten(candidate_name), :target) > 0 "
+            "       OR instr(:target, flatten(candidate_name)) > 0) "
+            "ORDER BY id LIMIT 1",
+            {"target": target_flat},
+        ).fetchone()
+    except sqlite3.Error as e:
+        print(f"Database error while reading scores: {e}")
+        return empty
     finally:
         conn.close()
-    
-    target_flat = flatten_text(candidate_name)
-    
-    for row in rows:
-        db_cand_name = row[0]
-        if target_flat and (target_flat in flatten_text(db_cand_name) or flatten_text(db_cand_name) in target_flat):
-            # SWAPPED: Overall score (row[2]) is now CV Score, Average per-q (row[1]) is Interview Score
-            return {
-                "cv_score": str(row[2]) if row[2] is not None else "N/A",
-                "interview_score": str(row[1]) if row[1] is not None else "N/A",
-                "feedback": row[3] or "",
-                "date": str(row[4]) if row[4] else ""
-            }
-            
-    return {"cv_score": "N/A", "interview_score": "N/A", "feedback": "", "date": ""}
+
+    if row is None:
+        return empty
+
+    # SWAPPED: Overall score (row[2]) is now CV Score, Average per-q (row[1]) is Interview Score
+    return {
+        "cv_score": str(row[2]) if row[2] is not None else "N/A",
+        "interview_score": str(row[1]) if row[1] is not None else "N/A",
+        "feedback": row[3] or "",
+        "date": str(row[4]) if row[4] else "",
+    }
 
 
 def extract_scores_from_md(report_path: Path):
@@ -114,11 +157,13 @@ def extract_scores_from_md(report_path: Path):
 
 @app.route("/api/search", methods=["POST"])
 def search_candidate():
-    data = request.json or {}
-    query = data.get("name", "").strip()
-
-    if not query:
-        return jsonify({"error": "Please enter a candidate name."}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid request."}), 400
+    try:
+        query = validate_name(data.get("name", ""))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     folders = find_candidate_folders(query)
     if not folders:
@@ -160,9 +205,11 @@ def search_candidate():
 
 @app.route("/api/get_report", methods=["POST"])
 def get_report():
-    data = request.json or {}
-    relative_folder = data.get("folder_path", "")
-    report_filename = data.get("report_filename", "")
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid request."}), 400
+    relative_folder = str(data.get("folder_path", ""))
+    report_filename = str(data.get("report_filename", ""))
 
     folder_path = (PROJECT_ROOT / relative_folder).resolve()
     report_path = (folder_path / report_filename).resolve()
@@ -182,7 +229,7 @@ def get_report():
         html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
     else:
         # Fallback raw pre-formatted text
-        html_content = f"<pre>{md_content}</pre>"
+        html_content = f"<pre>{html.escape(md_content)}</pre>"
 
     return jsonify({
         "candidate": folder_path.name,
