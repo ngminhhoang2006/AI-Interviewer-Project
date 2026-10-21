@@ -17,6 +17,12 @@ try:
 except ImportError:
     HAS_MARKDOWN = False
 
+try:
+    import nh3  # HTML sanitizer
+    HAS_SANITIZER = True
+except ImportError:
+    HAS_SANITIZER = False
+
 app = Flask(
     __name__,
     template_folder=str(PROJECT_ROOT / "templates"),
@@ -224,9 +230,14 @@ def get_report():
 
     md_content = report_path.read_text(encoding="utf-8")
 
-    # Render Markdown to HTML if markdown package is installed
-    if HAS_MARKDOWN:
-        html_content = markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+    # The report text is written by an LLM from the candidate's CV and answers, so it is
+    # untrusted. Markdown lets raw HTML through (<script>, <img onerror=...>), so the rendered
+    # HTML MUST be sanitized before the browser inserts it into the page. If either package is
+    # missing we fall back to escaped plain text instead of risking unsanitized HTML.
+    if HAS_MARKDOWN and HAS_SANITIZER:
+        html_content = nh3.clean(
+            markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
+        )
     else:
         # Fallback raw pre-formatted text
         html_content = f"<pre>{html.escape(md_content)}</pre>"
@@ -240,4 +251,5 @@ def get_report():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    import os
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", host=os.environ.get("HOST", "127.0.0.1"), port=5001)

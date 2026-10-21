@@ -10,7 +10,7 @@ import json
 import re
 import shutil
 import subprocess
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify, url_for, abort
 import cv_reader
 import questions_generator
 import chatbot
@@ -231,7 +231,8 @@ def interview_page(candidate, lang):
     questions_file = cand_dir / f"{candidate}_questions_{lang}.json"
 
     if not questions_file.exists():
-        return f"Question file {questions_file.name} not found.", 404
+        # Don't echo URL parts back as HTML (that was a reflected XSS)
+        abort(404)
 
     questions_data = chatbot.load_questions(questions_file)
     extracted_questions = chatbot.extract_questions(questions_data)
@@ -482,7 +483,7 @@ def report_page(candidate):
     report_path = cand_dir / f"{candidate}_answers_report.json"
 
     if not answers_path.exists():
-        return f"Answers file for {candidate} not found.", 404
+        abort(404)
 
     # 1. Read answers and generate the evaluation report
     data = json.loads(answers_path.read_text(encoding="utf-8"))

@@ -9,6 +9,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from models import db, User, InterviewResult
+from security import init_security
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -31,15 +32,16 @@ db_dir = PROJECT_ROOT / "database"
 db_dir.mkdir(parents=True, exist_ok=True)
 
 # App Configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
+# SECRET_KEY, secure cookies, CSRF protection and security headers (see apps/security.py)
+init_security(app, PROJECT_ROOT)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_dir / 'interview_portal.db'}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # ----------------------------------------------------------------------
 # Flask-Mail Configuration (SMTP)
-# Make sure to run these 2 commands first in shell for testing:
-# export MAIL_USERNAME="hoangdeptrai61@gmail.com"
-# export MAIL_PASSWORD="rxnj ferp zrig khha"
+# Never put credentials in source code. Set them in your shell (or a .env that is git-ignored):
+#   export MAIL_USERNAME="you@example.com"
+#   export MAIL_PASSWORD="<app password>"
 # ----------------------------------------------------------------------
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
@@ -56,6 +58,7 @@ db.init_app(app)
 
 login_manager = LoginManager()
 login_manager.login_view = 'login'
+login_manager.session_protection = 'strong'
 login_manager.init_app(app)
 
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -68,10 +71,17 @@ def load_user(user_id):
 with app.app_context():
     db.create_all()
     if not User.query.filter_by(role='admin').first():
-        admin = User(username='Nguyen Minh Hoang', email='hoangdeptrai61@gmail.com', role='admin')
-        admin.set_password('PennyPolendina69420!')
-        db.session.add(admin)
-        db.session.commit()
+        # The first admin comes from the environment, never from source code:
+        #   export ADMIN_USERNAME="..." ADMIN_EMAIL="..." ADMIN_PASSWORD="..."
+        admin_email = os.environ.get('ADMIN_EMAIL')
+        admin_password = os.environ.get('ADMIN_PASSWORD')
+        if admin_email and admin_password:
+            admin = User(username=os.environ.get('ADMIN_USERNAME', 'admin'), email=admin_email, role='admin')
+            admin.set_password(admin_password)
+            db.session.add(admin)
+            db.session.commit()
+        else:
+            print("[setup] No admin account exists. Set ADMIN_EMAIL and ADMIN_PASSWORD and restart to create one.")
 
 # ----------------------------------------------------------------------
 # Email Helper Functions
@@ -293,12 +303,15 @@ def reset_password(token):
 
     return render_template('reset_password.html', token=token)
 
-@app.route('/logout')
-@login_required
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
-    logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('login'))
+    # Logging out changes state, so it only happens on POST (which needs a CSRF token).
+    # A plain GET (e.g. a forged <img src="/logout">) just goes back to the home page.
+    if request.method == 'POST' and current_user.is_authenticated:
+        logout_user()
+        flash('You have been logged out.', 'info')
+        return redirect(url_for('login'))
+    return redirect(url_for('index'))
 
 # ----------------------------------------------------------------------
 # Navigation Routes
@@ -340,4 +353,10 @@ for rule in checker_app.url_map.iter_rules():
 
 if __name__ == "__main__":
     print("Starting Unified Interview Application...")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    # debug=True exposes the Werkzeug console (remote code execution) - opt in explicitly,
+    # and only listen on all interfaces if asked to.
+    app.run(
+        debug=os.environ.get("FLASK_DEBUG", "0") == "1",
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", 5000)),
+    )
