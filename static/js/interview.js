@@ -46,7 +46,9 @@ document.addEventListener("DOMContentLoaded", () => {
             speakQuestion(document.getElementById("questionText").innerText);
         }
     }
-    window.switchMode = switchMode; // used by inline onchange in the radio inputs
+    document.querySelectorAll('input[name="interviewMode"]').forEach((radio) => {
+        radio.addEventListener("change", () => switchMode(radio.value));
+    });
 
     async function speakQuestion(text, onEndCallback = null) {
         if (!text || !text.trim()) return;

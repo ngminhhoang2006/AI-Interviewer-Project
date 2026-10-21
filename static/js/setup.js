@@ -11,8 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
             display.classList.remove("file-selected");
         }
     }
-    // Exposed so the inline onchange="updateFileName(this)" in the HTML keeps working
-    window.updateFileName = updateFileName;
+    // (no inline onchange= attribute: the Content-Security-Policy blocks those)
+    const cvInput = document.getElementById("cv_file");
+    if (cvInput) cvInput.addEventListener("change", () => updateFileName(cvInput));
 
     document.getElementById("uploadForm").onsubmit = async (e) => {
         e.preventDefault();

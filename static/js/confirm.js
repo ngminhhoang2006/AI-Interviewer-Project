@@ -143,7 +143,12 @@
 
         if (confirmed) {
             window.interviewInProgress = false;
-            confirmDialog.navigate(link.href);
+            const logoutForm = document.getElementById("logoutForm");
+            if (isLogout && logoutForm) {
+                logoutForm.submit();          // logout is a POST with a CSRF token
+            } else {
+                confirmDialog.navigate(link.href);
+            }
         }
     });
     // ------------------------------------------------- browser back / refresh / close tab

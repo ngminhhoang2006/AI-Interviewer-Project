@@ -2,10 +2,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("searchInput");
     if (!searchInput) return; // Admin-only section not present for this user
 
-    window.searchCandidate = async function () {
+    const resultsDiv = document.getElementById("searchResults");
+    const reportDiv = document.getElementById("reportContainer");
+
+    // Everything below that shows server data uses textContent / DOM nodes, never innerHTML.
+    // Folder names come from the name on an uploaded CV, so they are attacker-controlled.
+    function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    function showMessage(text) {
+        resultsDiv.replaceChildren(el("p", "empty-msg", text));
+    }
+
+    async function searchCandidate() {
         const query = searchInput.value.trim();
-        const resultsDiv = document.getElementById("searchResults");
-        const reportDiv = document.getElementById("reportContainer");
 
         if (!query) {
             return alertDialog({
@@ -14,7 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }).then(() => searchInput.focus());
         }
 
-        resultsDiv.innerHTML = "Searching disk records...";
+        showMessage("Searching disk records...");
         reportDiv.classList.add("hidden");
 
         try {
@@ -25,38 +39,47 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             const data = await res.json();
-            resultsDiv.innerHTML = "";
+            resultsDiv.replaceChildren();
 
-            if (data.message) {
-                resultsDiv.innerHTML = `<p class="empty-msg">${data.message}</p>`;
+            if (data.error || data.message) {
+                showMessage(String(data.error || data.message));
                 return;
             }
 
             data.candidates.forEach(cand => {
-                const card = document.createElement("div");
-                card.className = "candidate-item";
-                let reportsHTML = cand.reports.length === 0
-                    ? "<p class='empty-msg'>No report file (.md) found.</p>"
-                    : cand.reports.map(reportName => `
-                        <div class="report-item-row">
-                            <span class="file-name">📄 ${reportName}</span>
-                            <button class="btn btn-teal-sm" onclick="viewReport('${cand.folder_path}', '${reportName}')">View</button>
-                        </div>
-                    `).join('');
+                const card = el("div", "candidate-item");
 
-                card.innerHTML = `
-                    <h4>Candidate Folder: <strong>${cand.folder_name}</strong></h4>
-                    <p>CV Score: ${cand.cv_score} | Interview Score: ${cand.interview_score}</p>
-                    ${reportsHTML}
-                    `;
+                const title = el("h4", null, "Candidate Folder: ");
+                title.appendChild(el("strong", null, cand.folder_name));
+                card.appendChild(title);
+
+                card.appendChild(el("p", null,
+                    `CV Score: ${cand.cv_score} | Interview Score: ${cand.interview_score}`));
+
+                if (cand.reports.length === 0) {
+                    card.appendChild(el("p", "empty-msg", "No report file (.md) found."));
+                } else {
+                    cand.reports.forEach(reportName => {
+                        const row = el("div", "report-item-row");
+                        row.appendChild(el("span", "file-name", "📄 " + reportName));
+
+                        const viewBtn = el("button", "btn btn-teal-sm", "View");
+                        viewBtn.type = "button";
+                        // Values are captured in a closure - they are never parsed as code or HTML.
+                        viewBtn.addEventListener("click", () => viewReport(cand.folder_path, reportName));
+                        row.appendChild(viewBtn);
+
+                        card.appendChild(row);
+                    });
+                }
                 resultsDiv.appendChild(card);
             });
         } catch (err) {
-            resultsDiv.innerHTML = "<p class='empty-msg'>Failed to retrieve search results.</p>";
+            showMessage("Failed to retrieve search results.");
         }
-    };
+    }
 
-    window.viewReport = async function (folderPath, reportFilename) {
+    async function viewReport(folderPath, reportFilename) {
         const res = await fetch("/api/get_report", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -67,12 +90,21 @@ document.addEventListener("DOMContentLoaded", () => {
             return alertDialog({ title: "Couldn't open the report", message: String(data.error) });
         }
 
-        document.getElementById("reportTitle").innerText = `Report: ${data.candidate}`;
+        document.getElementById("reportTitle").textContent = `Report: ${data.candidate}`;
+        // content_html is Markdown rendered from LLM output; the server sanitizes it with nh3
+        // (see check_app.get_report) and the CSP blocks inline script as a second layer.
         document.getElementById("reportContent").innerHTML = data.content_html;
-        document.getElementById("reportContainer").classList.remove("hidden");
-    };
+        reportDiv.classList.remove("hidden");
+    }
 
-    window.closeReport = function () {
-        document.getElementById("reportContainer").classList.add("hidden");
-    };
+    function closeReport() {
+        reportDiv.classList.add("hidden");
+    }
+
+    // Event wiring (replaces the inline onclick= / onkeyup= attributes, which the CSP blocks)
+    document.getElementById("searchBtn").addEventListener("click", searchCandidate);
+    searchInput.addEventListener("keyup", (event) => {
+        if (event.key === "Enter") searchCandidate();
+    });
+    document.getElementById("closeReportBtn").addEventListener("click", closeReport);
 });
