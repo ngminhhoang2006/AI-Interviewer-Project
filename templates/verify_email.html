@@ -20,6 +20,7 @@
     {% endwith %}
 
     <form method="POST" action="{{ url_for('verify_email') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom: 22px;">
             <label for="code" class="login-label">Enter 6-Digit Code</label>
             <input type="text" id="code" name="code" maxlength="6" pattern="\d{6}" required class="login-form-control" placeholder="123456" autocomplete="one-time-code" style="letter-spacing: 4px; text-align: center; font-size: 1.2rem; font-weight: bold;">
@@ -29,6 +30,7 @@
     </form>
 
     <form method="POST" action="{{ url_for('resend_code') }}" style="margin-top: 15px; text-align: center;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" style="background: none; border: none; color: #008080; cursor: pointer; font-size: 0.9rem; text-decoration: underline;">
             Didn't receive code? Resend
         </button>

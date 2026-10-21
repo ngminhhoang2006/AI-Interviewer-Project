@@ -57,8 +57,8 @@
     <h3>Admin File Report Search</h3>
     <p class="subtitle">Search generated Markdown (.md) reports on disk.</p>
     <div class="admin-search-box">
-        <input type="text" id="searchInput" placeholder="Enter candidate name..." class="form-select" onkeyup="if(event.key === 'Enter') searchCandidate()">
-        <button class="btn btn-teal" onclick="searchCandidate()">Search Files</button>
+        <input type="text" id="searchInput" placeholder="Enter candidate name..." class="form-select">
+        <button class="btn btn-teal" id="searchBtn">Search Files</button>
     </div>
     <div id="searchResults" class="results-container"></div>
 </div>
@@ -66,7 +66,7 @@
 <div id="reportContainer" class="card report-view hidden" style="margin-top: 20px;">
     <div class="report-header-flex">
         <h3 id="reportTitle">Candidate Report</h3>
-        <button onclick="closeReport()" class="btn btn-outline-danger">Close Report</button>
+        <button id="closeReportBtn" class="btn btn-outline-danger">Close Report</button>
     </div>
     <hr class="divider">
     <div id="reportContent"></div>

@@ -17,6 +17,7 @@
     {% endwith %}
 
     <form method="POST" action="{{ url_for('signup') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom: 18px;">
             <label for="username" class="login-label">Username</label>
             <input type="text" id="username" name="username" required class="login-form-control" placeholder="Choose a username" autocomplete="username">
