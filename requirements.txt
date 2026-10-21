@@ -10,6 +10,8 @@ flask
 flask-mail
 flask-login
 flask-sqlalchemy
+flask-wtf
+nh3
 sqlalchemy
 itsdangerous
 markdown
