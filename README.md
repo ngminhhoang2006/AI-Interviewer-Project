@@ -52,6 +52,17 @@ Applicants can make their own accounts to take the interview and check their res
 
 <img width="974" height="877" alt="image" src="https://github.com/user-attachments/assets/4fe44767-44a4-473e-bbb3-aaeece2d4dd7" />
 
+## Technical details
+The AI and audio features run locally, so interview data stays on your machine.
+
+**Question generation and grading: Ollama with Qwen3 8B**
+Ollama serves Qwen3 8B locally. The model generates the technical, behavioral and situational questions from the candidate's profile (Step 2) and grades the transcript against those questions (Step 4). Running it locally means no API fees and no candidate data sent to a third-party service.
+
+**Text-to-speech: sherpa-onnx**
+sherpa-onnx reads each question aloud to the candidate. It runs speech models through ONNX Runtime on the local machine, so it needs no cloud service.
+
+**Recording cleanup: noisereduce and webrtcvad**
+Both libraries clean up the interviewee's recordings. webrtcvad wraps Google's WebRTC voice activity detector, which labels short audio frames as speech or non-speech. noisereduce uses spectral gating to suppress steady background noise such as fans or room hum.
 
 ## How to use the website
 To try the website, download the setup files from the Releases page and run the ones for your OS. Each OS has two types: terminal-based and GUI-based. Then run `home_app.py` in the `apps` folder. You can also download the whole repo from GitHub.
