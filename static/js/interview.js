@@ -1,0 +1,335 @@
+document.addEventListener("DOMContentLoaded", () => {
+    // Config injected by the server via the DOM (see interview.html) —
+    // questions is JSON parsed out of a <script type="application/json"> block
+    // (safe against JSON containing "</script>", quotes, etc.); candidate/language
+    // come from data-* attributes since they're plain strings.
+    const configEl = document.getElementById("interviewConfig");
+    const questions = JSON.parse(document.getElementById("questionsData").textContent || "[]");
+    const candidate = configEl.dataset.candidate || "";
+    const language = configEl.dataset.language || "English";
+
+    // Read by confirm.js: nav bar links ask for confirmation while this is true
+    window.interviewInProgress = true;
+
+    let currentQIndex = 0;
+    let answers = [];
+    let isFollowUp = false;
+    let currentQuestionObj = null;
+
+    let activeMode = 'voice';
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    let currentAudioPlayer = null;
+    const synth = window.speechSynthesis;
+
+    function stopAllSpeech() {
+        if (currentAudioPlayer) {
+            currentAudioPlayer.pause();
+            currentAudioPlayer = null;
+        }
+        if (synth) {
+            synth.cancel();
+        }
+    }
+
+    function switchMode(mode) {
+        activeMode = mode;
+        stopAllSpeech();
+
+        if (activeMode === 'text') {
+            document.getElementById("btnReplay").style.display = "inline-block";
+            if (isRecording) stopRecording();
+        } else {
+            document.getElementById("btnReplay").style.display = "inline-block";
+            speakQuestion(document.getElementById("questionText").innerText);
+        }
+    }
+    document.querySelectorAll('input[name="interviewMode"]').forEach((radio) => {
+        radio.addEventListener("change", () => switchMode(radio.value));
+    });
+
+    async function speakQuestion(text, onEndCallback = null) {
+        if (!text || !text.trim()) return;
+        stopAllSpeech();
+
+        try {
+            const response = await fetch('/api/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, language: language })
+            });
+
+            const data = await response.json();
+
+            if (data.status === "success" && data.audio_data) {
+                currentAudioPlayer = new Audio(data.audio_data);
+
+                currentAudioPlayer.onended = () => {
+                    if (activeMode === 'voice' && !isRecording && onEndCallback) {
+                        onEndCallback();
+                    }
+                };
+
+                await currentAudioPlayer.play();
+                return;
+            }
+
+            triggerBrowserTTS(text, onEndCallback);
+
+        } catch (err) {
+            console.error("[TTS Error] Failed to reach /api/tts endpoint:", err);
+            triggerBrowserTTS(text, onEndCallback);
+        }
+    }
+
+    function triggerBrowserTTS(text, onEndCallback = null) {
+        if (!synth) return;
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        // The server sends a BCP-47 tag for the chosen language (data-lang-tag).
+        // `language` itself arrives lower-cased from the URL ("vietnamese"), so the
+        // old capitalised map never matched and every language read as en-US.
+        const fallbackMap = {
+            'english': 'en-US', 'vietnamese': 'vi-VN', 'spanish': 'es-ES', 'french': 'fr-FR',
+            'german': 'de-DE', 'italian': 'it-IT', 'portuguese': 'pt-BR', 'russian': 'ru-RU',
+            'hindi': 'hi-IN', 'indonesian': 'id-ID', 'chinese': 'zh-CN', 'arabic': 'ar-SA',
+            'turkish': 'tr-TR', 'polish': 'pl-PL', 'ukrainian': 'uk-UA',
+            'japanese': 'ja-JP', 'korean': 'ko-KR', 'thai': 'th-TH'
+        };
+        utterance.lang = configEl.dataset.langTag || fallbackMap[language.toLowerCase()] || 'en-US';
+        utterance.rate = 1.0;
+
+        utterance.onend = () => {
+            if (activeMode === 'voice' && !isRecording && onEndCallback) {
+                onEndCallback();
+            }
+        };
+
+        synth.speak(utterance);
+    }
+
+    async function startRecording() {
+        const recordBtn = document.getElementById("btnRecord");
+        const recordingStatus = document.getElementById("recordingStatus");
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            let mimeType = 'audio/webm';
+            if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+                else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+                else mimeType = '';
+            }
+
+            mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                recordingStatus.innerText = "Transcribing audio...";
+                const blobType = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunks, { type: blobType });
+                await sendAudioToWhisper(audioBlob);
+                recordingStatus.innerText = "";
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            recordBtn.classList.add("recording");
+            recordBtn.innerText = "Stop recording";
+            recordingStatus.innerText = "Listening...";
+        } catch (err) {
+            console.error("Microphone access error:", err);
+            alertDialog({
+                title: "Microphone unavailable",
+                message: "Microphone access is required for voice input. Please allow microphone " +
+                         "access in your browser, or switch to Text Mode.",
+            });
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            isRecording = false;
+
+            const recordBtn = document.getElementById("btnRecord");
+            recordBtn.classList.remove("recording");
+            recordBtn.innerText = "Start recording";
+        }
+    }
+
+    function toggleRecording() {
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    }
+
+    async function sendAudioToWhisper(audioBlob) {
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+        formData.append("language", language);
+        const questionForContext = isFollowUp
+            ? document.getElementById("questionText").innerText
+            : (currentQuestionObj ? currentQuestionObj.question : "");
+        formData.append("current_question", questionForContext);
+
+        try {
+            const response = await fetch("/api/interview/transcribe-audio", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            if (data.transcript) {
+                const answerInput = document.getElementById("answerInput");
+                answerInput.value = answerInput.value
+                    ? `${answerInput.value.trim()} ${data.transcript}`
+                    : data.transcript;
+            }
+        } catch (err) {
+            console.error("Failed to transcribe audio:", err);
+        }
+    }
+
+    function renderQuestion() {
+        if (!questions || questions.length === 0 || currentQIndex >= questions.length || answers.length >= 10) {
+            finishInterview();
+            return;
+        }
+
+        currentQuestionObj = questions[currentQIndex];
+        document.getElementById("qBadge").innerText = `Q${answers.length + 1} (${currentQuestionObj.category || 'introduction'})`;
+        document.getElementById("diffBadge").innerText = `Difficulty: ${currentQuestionObj.difficulty || 'general'}`;
+        document.getElementById("questionText").innerText = currentQuestionObj.question;
+        document.getElementById("answerInput").value = "";
+        document.getElementById("status").innerText = "";
+
+        if (activeMode === 'voice') {
+            speakQuestion(currentQuestionObj.question, () => {
+                startRecording();
+            });
+        }
+    }
+
+    document.getElementById("btnReplay").onclick = () => {
+        speakQuestion(document.getElementById("questionText").innerText);
+    };
+
+    document.getElementById("btnRecord").onclick = toggleRecording;
+
+    document.getElementById("btnSubmit").onclick = async () => {
+        if (document.querySelector(".confirm-overlay")) return; // a dialog is already open
+        if (isRecording) stopRecording();
+        stopAllSpeech();
+
+        const answer = document.getElementById("answerInput").value.trim();
+        if (!answer) {
+            await alertDialog({
+                title: "Answer required",
+                message: "Please type an answer or record your voice response before submitting.",
+            });
+            document.getElementById("answerInput").focus();
+            return;
+        }
+
+        const isConfirmed = await confirmDialog({
+            title: "Submit this answer?",
+            message: "Once submitted, you can't go back and change this answer.",
+            confirmText: "Submit answer",
+            cancelText: "Keep editing",
+        });
+        if (!isConfirmed) {
+            return;
+        }
+
+        document.getElementById("status").innerText = "Processing answer...";
+
+        if (!isFollowUp) {
+            const record = {
+                question_number: answers.length + 1,
+                type: "predefined",
+                category: currentQuestionObj.category,
+                difficulty: currentQuestionObj.difficulty,
+                topic: currentQuestionObj.topic,
+                question: currentQuestionObj.question,
+                answer: answer
+            };
+            answers.push(record);
+
+            document.getElementById("status").innerText = "Checking if follow-up is needed...";
+            const res = await fetch("/api/follow_up", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    candidate_name: candidate,
+                    language: language,
+                    current_question: currentQuestionObj.question,
+                    answer: answer,
+                    previous_answers: answers
+                })
+            });
+            const data = await res.json();
+
+            if (data.follow_up && answers.length < 10) {
+                isFollowUp = true;
+                document.getElementById("qBadge").innerText = `Q${answers.length + 1} (Follow-Up)`;
+                document.getElementById("questionText").innerText = data.follow_up;
+                document.getElementById("answerInput").value = "";
+                document.getElementById("status").innerText = "";
+
+                if (activeMode === 'voice') {
+                    speakQuestion(data.follow_up, () => startRecording());
+                }
+                return;
+            }
+        } else {
+            const record = {
+                question_number: answers.length + 1,
+                type: "follow_up",
+                category: currentQuestionObj.category,
+                difficulty: currentQuestionObj.difficulty,
+                topic: currentQuestionObj.topic,
+                question: document.getElementById("questionText").innerText,
+                answer: answer
+            };
+            answers.push(record);
+            isFollowUp = false;
+        }
+
+        currentQIndex++;
+        renderQuestion();
+    };
+
+    async function finishInterview() {
+        stopAllSpeech();
+        if (isRecording) stopRecording();
+
+        document.getElementById("status").innerText = "Saving answers and finalizing interview...";
+        const res = await fetch("/api/save_answers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                candidate_folder: candidate,
+                language: language,
+                answers: answers
+            })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            window.interviewInProgress = false;
+            window.location.href = data.redirect;
+        }
+    }
+
+    renderQuestion();
+});
