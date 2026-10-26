@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Log In - AI Interview Portal{% endblock %}
+
+{% block content %}
+<div class="card login-card">
+    <div class="page-header">
+        <h2>Welcome back</h2>
+        <p class="subtitle">Enter your credentials to log in.</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} login-alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="username">Username or email</label>
+            <input type="text" id="username" name="username" required placeholder="Enter your username or email" autocomplete="username">
+        </div>
+
+        <div class="form-group">
+            <div class="field-row">
+                <label for="password">Password</label>
+                <a href="{{ url_for('forgot_password') }}">Forgot password?</a>
+            </div>
+            <input type="password" id="password" name="password" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn">Log in</button>
+    </form>
+
+    <div class="auth-foot">
+        <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
+    </div>
+</div>
+{% endblock %}

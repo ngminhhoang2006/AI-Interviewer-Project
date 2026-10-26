@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}AI Interview Portal - Setup{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Candidate interview setup</h1>
+    <p class="subtitle">Upload a candidate resume to generate technical interview questions.</p>
+</div>
+
+<div class="card setup-card">
+    <!-- Step 1: Upload CV -->
+    <div id="step-upload">
+        <h3>Step 1: Upload the candidate's CV</h3>
+        <form id="uploadForm" class="form-container">
+            <div class="file-upload-wrapper">
+                <label for="cv_file" class="file-dropzone">
+                    <span id="fileNameDisplay" class="file-text">Click or drag a PDF résumé here</span>
+                    <input type="file" id="cv_file" name="cv_file" accept=".pdf" required>
+                </label>
+            </div>
+            <button type="submit" class="btn btn-lg">Parse CV</button>
+        </form>
+    </div>
+
+    <!-- Step 2: Select Language & Generate -->
+    <div id="step-questions" class="hidden">
+        <h3>Step 2: Position and language</h3>
+        <div class="form-group">
+            <label for="candidateName">Candidate name</label>
+            <input type="text" id="candidateName" maxlength="100"
+                   autocomplete="off" placeholder="Your full name">
+        </div>
+        
+        <div class="form-group">
+            <label for="jobPosition">Position you're applying for</label>
+            <input type="text" id="jobPosition" list="jobPositionSuggestions"
+                   maxlength="100" required autocomplete="off"
+                   placeholder="e.g. Software Engineer, AI Researcher">
+            <datalist id="jobPositionSuggestions">
+                <option value="Software Engineer"></option>
+                <option value="AI Researcher"></option>
+                <option value="Machine Learning Engineer"></option>
+                <option value="Data Scientist"></option>
+                <option value="Data Analyst"></option>
+                <option value="Data Engineer"></option>
+                <option value="Frontend Developer"></option>
+                <option value="Backend Developer"></option>
+                <option value="Full-Stack Developer"></option>
+                <option value="DevOps Engineer"></option>
+                <option value="Mobile Developer"></option>
+                <option value="QA Engineer"></option>
+                <option value="Cybersecurity Analyst"></option>
+                <option value="Product Manager"></option>
+            </datalist>
+            <small class="field-hint">Your interview questions will be tailored to this role. Type any position, or pick a suggestion.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="language">Interview language</label>
+            <div class="select-wrapper">
+                <select id="language">
+                    {# The list comes from SUPPORTED_LANGUAGES in interview_app.py; the fallback keeps the page working without it #}
+                    {% set langs = interview_languages if interview_languages is defined else [
+                        {'value': 'English', 'label': 'English'},
+                        {'value': 'Vietnamese', 'label': 'Vietnamese (Tiếng Việt)'},
+                        {'value': 'Spanish', 'label': 'Spanish (Español)'},
+                        {'value': 'French', 'label': 'French (Français)'},
+                        {'value': 'German', 'label': 'German (Deutsch)'},
+                        {'value': 'Italian', 'label': 'Italian (Italiano)'},
+                        {'value': 'Portuguese', 'label': 'Portuguese (Português)'},
+                        {'value': 'Russian', 'label': 'Russian (Русский)'},
+                        {'value': 'Hindi', 'label': 'Hindi (हिन्दी)'},
+                        {'value': 'Indonesian', 'label': 'Indonesian (Bahasa Indonesia)'},
+                        {'value': 'Chinese', 'label': 'Chinese (中文)'},
+                        {'value': 'Arabic', 'label': 'Arabic (العربية)'},
+                        {'value': 'Turkish', 'label': 'Turkish (Türkçe)'},
+                        {'value': 'Polish', 'label': 'Polish (Polski)'},
+                        {'value': 'Ukrainian', 'label': 'Ukrainian (Українська)'},
+                        {'value': 'Japanese', 'label': 'Japanese (日本語)'},
+                        {'value': 'Korean', 'label': 'Korean (한국어)'},
+                        {'value': 'Thai', 'label': 'Thai (ไทย)'}] %}
+                    {% for lang in langs %}
+                    <option value="{{ lang.value }}"{% if lang.value == 'English' %} selected{% endif %}>{{ lang.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button id="btnGenerate" class="btn btn-lg">Generate questions and start interview</button>
+        </div>
+    </div>
+
+    <div id="status" class="loading-state"></div>
+</div>
+<script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+{% endblock %}

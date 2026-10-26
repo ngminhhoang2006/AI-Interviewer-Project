@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AI Interview Platform{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Run the interview. Read the report.</h1>
+    <p>Upload a résumé, interview by voice or text, get a scored report.</p>
+    <div class="hero-actions">
+        <a href="/interview_portal" class="btn btn-lg">Start an interview</a>
+        <a href="/results_checker">Check results</a>
+    </div>
+</section>
+
+<ol class="process">
+    <li>
+        <h2>Read the résumé</h2>
+        <p>Text is pulled from the PDF and parsed into skills, work history, education and projects.</p>
+    </li>
+    <li>
+        <h2>Write the questions</h2>
+        <p>Technical, behavioural and situational questions are generated from that profile, in the candidate's language.</p>
+    </li>
+    <li>
+        <h2>Run the session</h2>
+        <p>Questions come one at a time, with follow-ups when an answer needs one.</p>
+    </li>
+    <li>
+        <h2>Score the answers</h2>
+        <p>Each answer is scored, then rolled into a report with a hiring recommendation.</p>
+    </li>
+</ol>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Email - AI Interview Portal{% endblock %}
+
+{% block content %}
+<div class="card login-card">
+    <h2>Email verification</h2>
+    <p class="subtitle">
+        We've sent a 6-digit verification code to <strong>{{ email }}</strong>.
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} login-alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('verify_email') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="code">Enter the 6-digit code</label>
+            <input type="text" id="code" name="code" maxlength="6" pattern="\d{6}" required placeholder="123456" autocomplete="one-time-code" inputmode="numeric" class="code-input">
+        </div>
+
+        <button type="submit" class="btn">Verify and finish sign up</button>
+    </form>
+
+    <form method="POST" action="{{ url_for('resend_code') }}" class="resend-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="link-button">
+            Didn't get a code? Resend it
+        </button>
+    </form>
+</div>
+{% endblock %}

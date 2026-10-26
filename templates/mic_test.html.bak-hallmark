@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Microphone Test - AI Interview Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Microphone check</h1>
+    {% if candidate %}
+    <p class="subtitle">
+        Check your microphone and speakers before starting the interview for
+        <strong>{{ candidate }}</strong>.
+    </p>
+    {% else %}
+    <p class="subtitle">
+        Test your audio input level and playback before joining an interview.
+    </p>
+    {% endif %}
+</div>
+
+<div class="card setup-card">
+    <!-- Device selection -->
+    <div class="form-group">
+        <label for="micSelect">Audio input device</label>
+        <select id="micSelect" class="form-select">
+            <option value="">Detecting audio devices...</option>
+        </select>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Input level -->
+    <div class="form-group">
+        <h2>1. Test the input level</h2>
+        <p class="candidate-info">Speak into your microphone and watch the meter respond.</p>
+        <div class="meter-container">
+            <div id="meterFill" class="meter-fill"></div>
+        </div>
+        <p id="micStatus" class="file-text">Click "Start mic test" to enable the level meter.</p>
+        <button id="btnStartMic" class="btn btn-quiet">Start mic test</button>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Record and play back -->
+    <div class="form-group">
+        <h2>2. Test playback</h2>
+        <p class="candidate-info">Record a short phrase and play it back to confirm the audio is clear.</p>
+        <div class="btn-group">
+            <button id="btnRecordTest" class="btn btn-quiet" disabled>Record 3s sample</button>
+        </div>
+        <audio id="audioPlayback" class="test-audio-preview" controls></audio>
+    </div>
+
+    <!-- Step 3 link, only shown during the active interview workflow -->
+    {% if candidate %}
+    <hr class="divider">
+    <div class="form-actions">
+        <a id="btnProceed" href="{{ url_for('interview_page', candidate=candidate, lang=language) }}" class="btn btn-lg">
+            Continue to the interview
+        </a>
+    </div>
+    {% endif %}
+</div>
+<script src="{{ url_for('static', filename='js/mic_test.js') }}"></script>
+{% endblock %}

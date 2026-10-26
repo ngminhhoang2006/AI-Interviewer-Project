@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}AI Interview Portal{% endblock %}</title>
+    <script src="{{ url_for('static', filename='js/csrf.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <nav class="navbar" aria-label="Main">
+        <a href="/" class="brand">Interview Portal</a>
+        <ul class="nav-links">
+            <li><a href="/" class="{% if request.path == '/' %}active{% endif %}">Home</a></li>
+            <li><a href="/mic_test" class="{% if request.path == '/mic_test' %}active{% endif %}">Test mic</a></li>
+            <li><a href="/interview_portal" class="{% if '/interview' in request.path or request.path == '/interview_portal' %}active{% endif %}">Take interview</a></li>
+            <li><a href="/results_checker" class="{% if '/results' in request.path or request.path == '/results_checker' %}active{% endif %}">Check results</a></li>
+        
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('logout') }}">Log out ({{ current_user.username }})</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}" class="{% if request.path == '/login' %}active{% endif %}">Log in</a></li>
+                <li><a href="{{ url_for('signup') }}" class="{% if request.path == '/signup' %}active{% endif %}">Sign up</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <div class="main-container">
+        {% block content %}{% endblock %}
+    </div>
+
+    {# Logout is a POST (needs a CSRF token). confirm.js shows the dialog, then submits this form. #}
+    <form id="logoutForm" method="POST" action="{{ url_for('logout') }}" hidden>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+
+    <script src="{{ url_for('static', filename='js/confirm.js') }}"></script>
+</body>
+</html>

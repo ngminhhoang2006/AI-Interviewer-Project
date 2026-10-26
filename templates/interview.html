@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}AI Interview Session{% endblock %}
+
+{% block content %}
+<div class="card interview-card" id="interviewConfig"
+     data-candidate="{{ candidate or '' }}" data-language="{{ language or 'English' }}"
+     data-lang-tag="{{ language_tag or '' }}">
+
+    <!-- Interview mode selector -->
+    <div class="mode-banner">
+        <span class="mode-label">Interview mode</span>
+        <div class="mode-options">
+            <label for="modeVoice" class="radio-label">
+                <input type="radio" id="modeVoice" name="interviewMode" value="voice" checked>
+                Voice
+            </label>
+            <label for="modeText" class="radio-label">
+                <input type="radio" id="modeText" name="interviewMode" value="text">
+                Text
+            </label>
+        </div>
+    </div>
+
+    <p class="session-title">Interview session: {{ candidate or "Candidate" }}</p>
+
+    <!-- Question block -->
+    <div id="questionContainer">
+        <div class="badge-group">
+            <span id="qBadge" class="pill-badge"></span>
+            <span id="diffBadge" class="pill-badge"></span>
+        </div>
+        <h2 id="questionText" class="question-prompt">Loading question...</h2>
+        <button id="btnReplay" class="btn btn-quiet btn-sm">Read the question aloud</button>
+    </div>
+
+    <!-- Answer block -->
+    <div class="answer-section">
+        <label for="answerInput" class="input-label">Your answer</label>
+        <textarea id="answerInput" rows="4" placeholder="Type your answer or use voice recording..."></textarea>
+
+        <div class="controls-bar">
+            <div class="btn-group">
+                <button id="btnRecord" class="btn btn-quiet">Start recording</button>
+                <button id="btnSubmit" class="btn">Submit answer</button>
+            </div>
+            <span id="recordingStatus" class="loading-state"></span>
+        </div>
+    </div>
+
+    <div id="status" class="loading-state"></div>
+</div>
+
+<script type="application/json" id="questionsData">{{ (questions or []) | tojson }}</script>
+<script src="{{ url_for('static', filename='js/interview.js') }}"></script>
+{% endblock %}
