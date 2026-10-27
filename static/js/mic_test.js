@@ -64,6 +64,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             activeStream = await navigator.mediaDevices.getUserMedia(constraints);
             micStatus.innerText = "Microphone active. Speak to test volume.";
+            micStatus.classList.remove("is-error");
+            micStatus.classList.add("is-ok");
             btnStartMic.disabled = true;
             btnRecordTest.disabled = false;
 
@@ -78,7 +80,8 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
             console.error("Microphone Access Error:", err);
             micStatus.innerText = "Error: Microphone access denied or unavailable.";
-            micStatus.style.color = "#ef4444";
+            micStatus.classList.remove("is-ok");
+            micStatus.classList.add("is-error");
         }
     };
 
@@ -100,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mediaRecorder.onstop = () => {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
                 audioPlayback.src = URL.createObjectURL(blob);
-                btnRecordTest.innerText = "🎤 Record 3s Sample";
+                btnRecordTest.innerText = "Record 3s sample";
                 btnRecordTest.disabled = false;
             };
 
@@ -115,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 message: "Failed to record a sample. Check that a microphone is connected and that " +
                          "this site is allowed to use it, then try again.",
             });
-            btnRecordTest.innerText = "🎤 Record 3s Sample";
+            btnRecordTest.innerText = "Record 3s sample";
             btnRecordTest.disabled = false;
         }
     };

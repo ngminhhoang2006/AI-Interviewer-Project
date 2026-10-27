@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mediaRecorder.start();
             isRecording = true;
             recordBtn.classList.add("recording");
-            recordBtn.innerText = "⏹️ Stop Recording";
+            recordBtn.innerText = "Stop recording";
             recordingStatus.innerText = "Listening...";
         } catch (err) {
             console.error("Microphone access error:", err);
@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const recordBtn = document.getElementById("btnRecord");
             recordBtn.classList.remove("recording");
-            recordBtn.innerText = "🎤 Start Recording";
+            recordBtn.innerText = "Start recording";
         }
     }
 

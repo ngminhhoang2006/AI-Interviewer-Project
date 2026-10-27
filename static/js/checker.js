@@ -49,21 +49,21 @@ document.addEventListener("DOMContentLoaded", () => {
             data.candidates.forEach(cand => {
                 const card = el("div", "candidate-item");
 
-                const title = el("h4", null, "Candidate Folder: ");
+                const title = el("h4", null, "Candidate folder: ");
                 title.appendChild(el("strong", null, cand.folder_name));
                 card.appendChild(title);
 
                 card.appendChild(el("p", null,
-                    `CV Score: ${cand.cv_score} | Interview Score: ${cand.interview_score}`));
+                    `CV score: ${cand.cv_score}. Interview score: ${cand.interview_score}.`));
 
                 if (cand.reports.length === 0) {
                     card.appendChild(el("p", "empty-msg", "No report file (.md) found."));
                 } else {
                     cand.reports.forEach(reportName => {
                         const row = el("div", "report-item-row");
-                        row.appendChild(el("span", "file-name", "📄 " + reportName));
+                        row.appendChild(el("span", "file-name", reportName));
 
-                        const viewBtn = el("button", "btn btn-teal-sm", "View");
+                        const viewBtn = el("button", "btn btn-sm", "View");
                         viewBtn.type = "button";
                         // Values are captured in a closure - they are never parsed as code or HTML.
                         viewBtn.addEventListener("click", () => viewReport(cand.folder_path, reportName));

@@ -4,10 +4,10 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateFileName(input) {
         const display = document.getElementById("fileNameDisplay");
         if (input.files && input.files[0]) {
-            display.innerText = "📄 " + input.files[0].name;
+            display.innerText = input.files[0].name;
             display.classList.add("file-selected");
         } else {
-            display.innerText = "Click or drag PDF resume here";
+            display.innerText = "Click or drag a PDF résumé here";
             display.classList.remove("file-selected");
         }
     }
