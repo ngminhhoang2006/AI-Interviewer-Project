@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="card login-card">
-    <h2>Email Verification</h2>
-    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+    <h2>Email verification</h2>
+    <p class="subtitle">
         We've sent a 6-digit verification code to <strong>{{ email }}</strong>.
     </p>
 
@@ -21,18 +21,18 @@
 
     <form method="POST" action="{{ url_for('verify_email') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group" style="margin-bottom: 22px;">
-            <label for="code" class="login-label">Enter 6-Digit Code</label>
-            <input type="text" id="code" name="code" maxlength="6" pattern="\d{6}" required class="login-form-control" placeholder="123456" autocomplete="one-time-code" style="letter-spacing: 4px; text-align: center; font-size: 1.2rem; font-weight: bold;">
+        <div class="form-group">
+            <label for="code">Enter the 6-digit code</label>
+            <input type="text" id="code" name="code" maxlength="6" pattern="\d{6}" required placeholder="123456" autocomplete="one-time-code" inputmode="numeric" class="code-input">
         </div>
 
-        <button type="submit" class="btn btn-teal login-btn">Verify & Complete Sign Up</button>
+        <button type="submit" class="btn">Verify and finish sign up</button>
     </form>
 
-    <form method="POST" action="{{ url_for('resend_code') }}" style="margin-top: 15px; text-align: center;">
+    <form method="POST" action="{{ url_for('resend_code') }}" class="resend-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" style="background: none; border: none; color: #008080; cursor: pointer; font-size: 0.9rem; text-decoration: underline;">
-            Didn't receive code? Resend
+        <button type="submit" class="link-button">
+            Didn't get a code? Resend it
         </button>
     </form>
 </div>

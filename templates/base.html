@@ -11,19 +11,19 @@
 </head>
 <body>
 
-    <nav class="navbar">
+    <nav class="navbar" aria-label="Main">
         <a href="/" class="brand">Interview Portal</a>
         <ul class="nav-links">
             <li><a href="/" class="{% if request.path == '/' %}active{% endif %}">Home</a></li>
-            <li><a href="/mic_test" class="{% if request.path == '/mic_test' %}active{% endif %}">Test Mic</a></li>
-            <li><a href="/interview_portal" class="{% if '/interview' in request.path or request.path == '/interview_portal' %}active{% endif %}">Take Interview</a></li>
-            <li><a href="/results_checker" class="{% if '/results' in request.path or request.path == '/results_checker' %}active{% endif %}">Check Results</a></li>
+            <li><a href="/mic_test" class="{% if request.path == '/mic_test' %}active{% endif %}">Test mic</a></li>
+            <li><a href="/interview_portal" class="{% if '/interview' in request.path or request.path == '/interview_portal' %}active{% endif %}">Take interview</a></li>
+            <li><a href="/results_checker" class="{% if '/results' in request.path or request.path == '/results_checker' %}active{% endif %}">Check results</a></li>
         
             {% if current_user.is_authenticated %}
-                <li><a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a></li>
+                <li><a href="{{ url_for('logout') }}">Log out ({{ current_user.username }})</a></li>
             {% else %}
-                <li><a href="{{ url_for('login') }}" class="{% if request.path == '/login' %}active{% endif %}">Login</a></li>
-                <li><a href="{{ url_for('signup') }}" class="{% if request.path == '/signup' %}active{% endif %}">Sign Up</a></li>
+                <li><a href="{{ url_for('login') }}" class="{% if request.path == '/login' %}active{% endif %}">Log in</a></li>
+                <li><a href="{{ url_for('signup') }}" class="{% if request.path == '/signup' %}active{% endif %}">Sign up</a></li>
             {% endif %}
         </ul>
     </nav>

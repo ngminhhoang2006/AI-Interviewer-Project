@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>🔍 Interviewee Report Checker</h1>
+    <h1>Interviewee report checker</h1>
     <p class="subtitle">
         Logged in as <strong>{{ current_user.username }}</strong> 
         <span class="role-badge">
@@ -14,21 +14,21 @@
 </div>
 
 <div class="card">
-    <h3>Your Interview Records</h3>
-    <hr class="divider">
+    <h2>Your interview records</h2>
 
     {% if results %}
+    <div class="table-scroll">
     <table class="results-table">
         <thead>
             <tr>
                 {% if is_admin %}
-                <th>User ID</th>
+                <th scope="col">User ID</th>
                 {% endif %}
-                <th>Candidate Name</th>
-                <th>Language</th>
-                <th>CV Score</th>
-                <th>Interview Score</th>
-                <th>Date</th>
+                <th scope="col">Candidate name</th>
+                <th scope="col">Language</th>
+                <th scope="col">CV score</th>
+                <th scope="col">Interview score</th>
+                <th scope="col">Date</th>
             </tr>
         </thead>
         <tbody>
@@ -46,27 +46,28 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
-    <p class="empty-msg" style="padding: 20px 0;">No interview records found for your account.</p>
+    <p class="empty-msg">No interview records found for your account.</p>
     {% endif %}
 </div>
 
 {% if is_admin %}
 <!-- File-Based Folder Search Section (Visible Only to Admin) -->
-<div class="card search-card" style="margin-top: 20px;">
-    <h3>Admin File Report Search</h3>
+<div class="card search-card">
+    <h2>Admin file report search</h2>
     <p class="subtitle">Search generated Markdown (.md) reports on disk.</p>
     <div class="admin-search-box">
-        <input type="text" id="searchInput" placeholder="Enter candidate name..." class="form-select">
-        <button class="btn btn-teal" id="searchBtn">Search Files</button>
+        <input type="text" id="searchInput" placeholder="Enter candidate name..." aria-label="Candidate name">
+        <button class="btn" id="searchBtn">Search files</button>
     </div>
     <div id="searchResults" class="results-container"></div>
 </div>
 
-<div id="reportContainer" class="card report-view hidden" style="margin-top: 20px;">
+<div id="reportContainer" class="card report-view hidden">
     <div class="report-header-flex">
-        <h3 id="reportTitle">Candidate Report</h3>
-        <button id="closeReportBtn" class="btn btn-outline-danger">Close Report</button>
+        <h2 id="reportTitle">Candidate report</h2>
+        <button id="closeReportBtn" class="btn btn-danger btn-sm">Close report</button>
     </div>
     <hr class="divider">
     <div id="reportContent"></div>

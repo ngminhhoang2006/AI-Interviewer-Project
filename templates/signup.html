@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="card login-card">
-    <h2>Create Account</h2>
+    <h2>Create account</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -18,32 +18,31 @@
 
     <form method="POST" action="{{ url_for('signup') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group" style="margin-bottom: 18px;">
-            <label for="username" class="login-label">Username</label>
-            <input type="text" id="username" name="username" required class="login-form-control" placeholder="Choose a username" autocomplete="username">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required placeholder="Choose a username" autocomplete="username">
         </div>
 
-        <div class="form-group" style="margin-bottom: 18px;">
-            <label for="email" class="login-label">Email Address</label>
-            <input type="email" id="email" name="email" required class="login-form-control" placeholder="name@example.com" autocomplete="email">
+        <div class="form-group">
+            <label for="email">Email address</label>
+            <input type="email" id="email" name="email" required placeholder="name@example.com" autocomplete="email">
         </div>
 
-        <div class="form-group" style="margin-bottom: 18px;">
-            <label for="password" class="login-label">Password</label>
-            <input type="password" id="password" name="password" required class="login-form-control" placeholder="Create a password" autocomplete="new-password">
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required placeholder="Create a password" autocomplete="new-password">
         </div>
 
-        <div class="form-group" style="margin-bottom: 22px;">
-            <label for="confirm_password" class="login-label">Confirm Password</label>
-            <input type="password" id="confirm_password" name="confirm_password" required class="login-form-control" placeholder="Re-enter password" autocomplete="new-password">
+        <div class="form-group">
+            <label for="confirm_password">Confirm password</label>
+            <input type="password" id="confirm_password" name="confirm_password" required placeholder="Re-enter password" autocomplete="new-password">
         </div>
 
-        <button type="submit" class="btn btn-teal login-btn">Sign Up</button>
+        <button type="submit" class="btn">Sign up</button>
     </form>
 
-    <div style="margin-top: 18px; text-align: center; font-size: 0.95rem;">
-        <span>Already have an account? </span>
-        <a href="{{ url_for('login') }}" style="color: #008080; text-decoration: none; font-weight: 600;">Sign In</a>
+    <div class="auth-foot">
+        <p>Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
     </div>
 </div>
 {% endblock %}

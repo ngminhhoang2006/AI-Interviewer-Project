@@ -3,43 +3,48 @@
 {% block title %}Interview Evaluation Report{% endblock %}
 
 {% block content %}
-<div class="card">
-    <h1>Interview Evaluation Report</h1>
-    <h2>Candidate: {{ report.candidate }}</h2>
+<article class="report-sheet">
+    <h1>Interview evaluation report</h1>
+    <h2 class="report-candidate">{{ report.candidate }}</h2>
 
     {% if save_status in ('saved', 'saved_via_fallback') %}
-    <p class="save-note save-ok">&#10003; These scores have been saved to the interview records.</p>
+    <p class="save-note save-ok">These scores have been saved to the interview records.</p>
     {% elif save_status == 'failed' %}
-    <p class="save-note save-warn">&#9888; These scores could not be saved to the interview records. They are kept in the report files; an administrator can run <code>python backfill_scores.py</code> to add them.</p>
+    <p class="save-note save-warn">These scores could not be saved to the interview records. They are kept in the report files; an administrator can run <code>python backfill_scores.py</code> to add them.</p>
     {% elif save_status == 'not_logged_in' %}
-    <p class="save-note save-warn">&#9888; You are not logged in, so these scores were not added to the interview records. <a href="{{ url_for('login') }}">Log in</a> and open this report again to save them.</p>
+    <p class="save-note save-warn">You are not logged in, so these scores were not added to the interview records. <a href="{{ url_for('login') }}">Log in</a> and open this report again to save them.</p>
     {% endif %}
-    <p><strong>Job Title:</strong> {{ report.job_title }} | <strong>Model:</strong> {{ report.model_used }}</p>
+
+    <dl class="report-meta">
+        <dt>Job title</dt>
+        <dd>{{ report.job_title }}</dd>
+        <dt>Model</dt>
+        <dd>{{ report.model_used }}</dd>
+    </dl>
 
     <div class="score-box">
-        <h3>Overall Recommendation: 
+        <h3>Overall recommendation:
             <span class="tag {{ 'hire' if 'Hire' in report.overall.recommendation else 'nohire' }}">
                 {{ report.overall.recommendation }}
             </span>
         </h3>
-        <p><strong>Overall Score:</strong> {{ report.overall.overall_score }}/10</p>
-        <p><strong>Average Answer Score:</strong> {{ report.average_score }}/10</p>
+        <p><strong>Overall score:</strong> {{ report.overall.overall_score }}/10</p>
+        <p><strong>Average answer score:</strong> {{ report.average_score }}/10</p>
         <p><strong>Summary:</strong> {{ report.overall.summary }}</p>
     </div>
 
-    <h2>Per-Question Breakdown</h2>
+    <h2>Per-question breakdown</h2>
     {% for item in report.per_question %}
-    <div class="q-card">
+    <section class="q-card">
         <h4>Q{{ item.question_number }}: {{ item.question }}</h4>
         <p><strong>Answer:</strong> {{ item.answer }}</p>
-        <hr class="divider">
         <p><strong>Score:</strong> {{ item.score }}/10</p>
         <p><strong>Strengths:</strong> {{ item.strengths }}</p>
         <p><strong>Concerns:</strong> {{ item.concerns }}</p>
         <p><strong>Comment:</strong> {{ item.comment }}</p>
-    </div>
+    </section>
     {% endfor %}
 
-    <a href="/" class="btn btn-teal back-link">Back to Home</a>
-</div>
+    <a href="/" class="btn back-link">Back to home</a>
+</article>
 {% endblock %}

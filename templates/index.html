@@ -4,38 +4,37 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Candidate Interview Setup</h1>
+    <h1>Candidate interview setup</h1>
     <p class="subtitle">Upload a candidate resume to generate technical interview questions.</p>
 </div>
 
 <div class="card setup-card">
     <!-- Step 1: Upload CV -->
     <div id="step-upload">
-        <h3>Step 1: Upload Candidate CV</h3>
+        <h3>Step 1: Upload the candidate's CV</h3>
         <form id="uploadForm" class="form-container">
             <div class="file-upload-wrapper">
                 <label for="cv_file" class="file-dropzone">
-                    <span class="file-icon">📁</span>
-                    <span id="fileNameDisplay" class="file-text">Click or drag PDF resume here</span>
+                    <span id="fileNameDisplay" class="file-text">Click or drag a PDF résumé here</span>
                     <input type="file" id="cv_file" name="cv_file" accept=".pdf" required>
                 </label>
             </div>
-            <button type="submit" class="btn btn-teal btn-lg">Parse CV</button>
+            <button type="submit" class="btn btn-lg">Parse CV</button>
         </form>
     </div>
 
     <!-- Step 2: Select Language & Generate -->
     <div id="step-questions" class="hidden">
-        <h3>Step 2: Position &amp; Language</h3>
+        <h3>Step 2: Position and language</h3>
         <div class="form-group">
-            <label for="candidateName">Candidate Name</label>
-            <input type="text" id="candidateName" class="custom-input" maxlength="100"
+            <label for="candidateName">Candidate name</label>
+            <input type="text" id="candidateName" maxlength="100"
                    autocomplete="off" placeholder="Your full name">
         </div>
         
         <div class="form-group">
-            <label for="jobPosition">Position You're Applying For</label>
-            <input type="text" id="jobPosition" class="custom-input" list="jobPositionSuggestions"
+            <label for="jobPosition">Position you're applying for</label>
+            <input type="text" id="jobPosition" list="jobPositionSuggestions"
                    maxlength="100" required autocomplete="off"
                    placeholder="e.g. Software Engineer, AI Researcher">
             <datalist id="jobPositionSuggestions">
@@ -58,9 +57,9 @@
         </div>
 
         <div class="form-group">
-            <label for="language">Interview Language</label>
+            <label for="language">Interview language</label>
             <div class="select-wrapper">
-                <select id="language" class="custom-select">
+                <select id="language">
                     {# The list comes from SUPPORTED_LANGUAGES in interview_app.py; the fallback keeps the page working without it #}
                     {% set langs = interview_languages if interview_languages is defined else [
                         {'value': 'English', 'label': 'English'},
@@ -88,8 +87,8 @@
             </div>
         </div>
 
-        <div style="text-align: center;">
-            <button id="btnGenerate" class="btn btn-teal btn-lg">Generate Questions & Start Interview</button>
+        <div class="form-actions">
+            <button id="btnGenerate" class="btn btn-lg">Generate questions and start interview</button>
         </div>
     </div>
 
