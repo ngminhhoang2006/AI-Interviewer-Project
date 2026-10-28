@@ -3,54 +3,47 @@ A fully automated website that runs technical interviews. Python files, includin
 
 Applicants can make their own accounts to take the interview and check their results. Account info is stored in a SQL database.
 
-<img width="1857" height="919" alt="image" src="https://github.com/user-attachments/assets/e13e4c5b-54e6-4e99-b518-dd3d9daaa45c" />
-
+<img width="1115" height="954" alt="image" src="https://github.com/user-attachments/assets/7d463d03-c84e-4dcf-8fd9-6e63478d30b4" />
 
 ## The Full Interview Process
 **Step 1: Resume parsing and data extraction**  
   Extracts raw text from PDF resumes and uses an LLM to parse it into clean, schema-compliant JSON. The output covers technical skills, work history, education, and notable projects.
 
-<img width="972" height="637" alt="image" src="https://github.com/user-attachments/assets/678081cf-3a87-4e00-bdf8-3e34b9370656" />
-
+<img width="1143" height="700" alt="image" src="https://github.com/user-attachments/assets/932fbea2-db74-457f-928f-645a4c41c884" />
 
 **Step 2: Adaptive question synthesis**  
   Reads the JSON profile to judge the candidate's seniority and tech stack, then generates technical, behavioral and situational questions that probe their specific experience and any gaps. The website supports multiple languages.
 
-<img width="889" height="876" alt="image" src="https://github.com/user-attachments/assets/561b95fa-0f6f-4881-91be-31354e47bef0" />
-
+<img width="784" height="764" alt="image" src="https://github.com/user-attachments/assets/ed3f4ba3-c1fb-4743-8b0c-004e8d3bf368" />
 
 **Step 3: Interactive interview**  
   The conversational engine for the live session. It asks the questions one at a time, handles follow-ups and clarifications in real time, keeps session state, and outputs a full transcript of the candidate's responses.
 
-<img width="838" height="754" alt="image" src="https://github.com/user-attachments/assets/409a2c67-2444-4814-993c-ac7c5ac12c73" />
-
+<img width="1112" height="932" alt="image" src="https://github.com/user-attachments/assets/1e2a491b-47ab-4763-b315-ab01947995f0" />
 
 **Step 4: Evaluation and report generation**  
   Checks the transcript against the generated questions and the candidate's background. Answers are scored on technical accuracy, problem-solving depth and communication clarity. The report includes structured metrics and hiring recommendations.
 
-<img width="1073" height="667" alt="image" src="https://github.com/user-attachments/assets/fbb27151-f704-468e-9f6f-3177587abc8b" />
-
-<img width="1003" height="596" alt="image" src="https://github.com/user-attachments/assets/0be3148a-ac4c-4cd8-bfec-dcd550f2d8a2" />
+<img width="1169" height="886" alt="image" src="https://github.com/user-attachments/assets/bccb9708-72da-4c55-8eb7-186ea69f347d" />
 
 ## Other features
 **Personal accounts**  
   Interviewees can create accounts that store their interview results privately.
 
-<img width="536" height="724" alt="image" src="https://github.com/user-attachments/assets/b46f536c-0770-45a9-aed8-e546c827636c" />
-
+<img width="687" height="785" alt="image" src="https://github.com/user-attachments/assets/e11e22da-1928-406d-9f57-c728f1c856b5" />
 
 **Microphone testing**  
   Applicants can test their microphone on a separate page before the interview, so the session goes smoothly.
 
-<img width="884" height="900" alt="image" src="https://github.com/user-attachments/assets/9b092519-197d-486d-9601-3506ce05b962" />
-
+<img width="692" height="784" alt="image" src="https://github.com/user-attachments/assets/00af66c0-af20-4c79-94e3-67d066073c29" />
 
 **Checking an interviewee's results**  
   The checker page shows the reports for an interviewee's session, including a score and comments on the answers.
 
-<img width="994" height="470" alt="image" src="https://github.com/user-attachments/assets/6cbf4520-1ee8-4262-ba59-e22a55101f43" />
+<img width="1158" height="803" alt="image" src="https://github.com/user-attachments/assets/fd911db0-f034-4b03-bb92-b2dc48aae6ed" />
 
-<img width="974" height="877" alt="image" src="https://github.com/user-attachments/assets/4fe44767-44a4-473e-bbb3-aaeece2d4dd7" />
+<img width="1043" height="608" alt="image" src="https://github.com/user-attachments/assets/082e04fe-f388-4817-8a41-3772b2fccb7a" />
+
 
 ## Technical details
 The AI and audio features run locally, so interview data stays on your machine.
