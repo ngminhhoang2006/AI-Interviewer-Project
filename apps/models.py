@@ -14,7 +14,6 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), default='candidate', nullable=False) # 'candidate' or 'admin'
     
-    # Relationship to candidate results
     results = db.relationship('InterviewResult', backref='candidate_user', lazy=True)
 
     def set_password(self, password):
