@@ -9,17 +9,20 @@ Applicants can make their own accounts to take the interview and check their res
 **Step 1: Resume parsing and data extraction**  
   Extracts raw text from PDF resumes and uses an LLM to parse it into clean, schema-compliant JSON. The output covers technical skills, work history, education, and notable projects.
 
-<img width="1143" height="700" alt="image" src="https://github.com/user-attachments/assets/932fbea2-db74-457f-928f-645a4c41c884" />
+<img width="1132" height="575" alt="image" src="https://github.com/user-attachments/assets/937379e0-0b2f-4d8c-b39e-7563651aacf2" />
+
 
 **Step 2: Adaptive question synthesis**  
   Reads the JSON profile to judge the candidate's seniority and tech stack, then generates technical, behavioral and situational questions that probe their specific experience and any gaps. The website supports multiple languages.
 
-<img width="784" height="764" alt="image" src="https://github.com/user-attachments/assets/ed3f4ba3-c1fb-4743-8b0c-004e8d3bf368" />
+<img width="1097" height="869" alt="image" src="https://github.com/user-attachments/assets/cac6f254-3843-4893-89e6-41e3a82004c2" />
+
 
 **Step 3: Interactive interview**  
   The conversational engine for the live session. It asks the questions one at a time, handles follow-ups and clarifications in real time, keeps session state, and outputs a full transcript of the candidate's responses.
 
-<img width="1112" height="932" alt="image" src="https://github.com/user-attachments/assets/1e2a491b-47ab-4763-b315-ab01947995f0" />
+<img width="1064" height="867" alt="image" src="https://github.com/user-attachments/assets/8a049987-4848-4ece-8493-a2734dfaafc0" />
+
 
 **Step 4: Evaluation and report generation**  
   Checks the transcript against the generated questions and the candidate's background. Answers are scored on technical accuracy, problem-solving depth and communication clarity. The report includes structured metrics and hiring recommendations.
