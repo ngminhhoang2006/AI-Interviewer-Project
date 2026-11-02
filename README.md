@@ -24,26 +24,28 @@ Applicants can make their own accounts to take the interview and check their res
 **Step 4: Evaluation and report generation**  
   Checks the transcript against the generated questions and the candidate's background. Answers are scored on technical accuracy, problem-solving depth and communication clarity. The report includes structured metrics and hiring recommendations.
 
-<img width="1169" height="886" alt="image" src="https://github.com/user-attachments/assets/bccb9708-72da-4c55-8eb7-186ea69f347d" />
+<img width="1123" height="700" alt="image" src="https://github.com/user-attachments/assets/badb5972-3c69-4e77-b335-2beed25012d7" />
+
 
 ## Other features
 **Personal accounts**  
   Interviewees can create accounts that store their interview results privately.
 
-<img width="687" height="785" alt="image" src="https://github.com/user-attachments/assets/e11e22da-1928-406d-9f57-c728f1c856b5" />
+<img width="626" height="625" alt="image" src="https://github.com/user-attachments/assets/fcde278d-a51c-4a15-8179-f349bf72a8cd" />
+
 
 **Microphone testing**  
   Applicants can test their microphone on a separate page before the interview, so the session goes smoothly.
 
-<img width="692" height="784" alt="image" src="https://github.com/user-attachments/assets/00af66c0-af20-4c79-94e3-67d066073c29" />
+<img width="753" height="886" alt="image" src="https://github.com/user-attachments/assets/4095f47f-ebca-41dd-997e-c4b73bde7814" />
+
 
 **Checking an interviewee's results**  
   The checker page shows the reports for an interviewee's session, including a score and comments on the answers.
 
-<img width="1158" height="803" alt="image" src="https://github.com/user-attachments/assets/fd911db0-f034-4b03-bb92-b2dc48aae6ed" />
+<img width="1153" height="654" alt="image" src="https://github.com/user-attachments/assets/c97b4e51-da57-4a5e-9f27-84a7dae3b65c" />
 
-<img width="1043" height="608" alt="image" src="https://github.com/user-attachments/assets/082e04fe-f388-4817-8a41-3772b2fccb7a" />
-
+<img width="1050" height="587" alt="image" src="https://github.com/user-attachments/assets/1ee5c863-ba26-4ae8-9864-26e8e3fdd156" />
 
 ## Technical details
 The AI and audio features run locally, so interview data stays on your machine.
