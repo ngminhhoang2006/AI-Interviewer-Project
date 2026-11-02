@@ -3,7 +3,7 @@ A fully automated website that runs technical interviews. Python files, includin
 
 Applicants can make their own accounts to take the interview and check their results. Account info is stored in a SQL database.
 
-<img width="1115" height="954" alt="image" src="https://github.com/user-attachments/assets/7d463d03-c84e-4dcf-8fd9-6e63478d30b4" />
+<img width="1209" height="922" alt="image" src="https://github.com/user-attachments/assets/1152ceae-da2b-4bd8-bea1-3402d1c721b1" />
 
 ## The Full Interview Process
 **Step 1: Resume parsing and data extraction**  
