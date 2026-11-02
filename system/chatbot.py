@@ -10,9 +10,6 @@ import io
 import wave
 import numpy as np
 
-# ------------------------------------------------------------
-# Audio recording dependencies
-# ------------------------------------------------------------
 try:
     import sounddevice as sd
     import numpy as np
@@ -20,9 +17,6 @@ try:
 except ImportError:
     _VOICE_CORE_AVAILABLE = False
 
-# ------------------------------------------------------------
-# Sherpa-ONNX dependency check
-# ------------------------------------------------------------
 try:
     import sherpa_onnx
     SHERPA_ONNX_AVAILABLE = True
@@ -35,12 +29,7 @@ try:
 except ImportError:
     VAD_AVAILABLE = False
 
-# ------------------------------------------------------------
-# noisereduce fallback (pure Python/numpy, no compiled deps).
-# Used automatically if the Sherpa-ONNX denoiser model isn't present.
-# Weaker on non-stationary noise (voices, traffic) but fine for
-# steady hum/fan noise, and has no numpy version pin at all.
-# ------------------------------------------------------------
+# Optional fallback denoiser: weak on non-stationary noise (voices, traffic), fine for steady hum.
 try:
     import noisereduce as nr
     NOISEREDUCE_AVAILABLE = True
@@ -58,34 +47,26 @@ SILENCE_DURATION = 1.5          # Seconds of quiet before assuming speaker is do
 CHUNK_DURATION = 0.5            # Seconds per audio chunk analyzed for silence
 MAX_RECORD_SECONDS = 120        # Maximum recording duration
 
-# webrtcvad config
 VAD_FRAME_MS = 30
 VAD_AGGRESSIVENESS = 3
 VAD_MIN_SPEECH_FRAMES = 3
 VAD_SILENCE_TOLERANCE = 0.15
 
-# Lazily initialized singletons
 _sherpa_asr_recognizer = None
 _sherpa_tts_engine = None
 _sherpa_tts_lock = threading.Lock()
 
-# Sherpa-ONNX's own speech denoiser (DPDFNet = ONNX export of DeepFilterNet).
-# Uses the same sherpa_onnx package you already have installed for ASR/TTS —
-# no torch/torchaudio, no numpy version pin, no dependency conflicts.
+# DPDFNet (ONNX export of DeepFilterNet) via sherpa_onnx, so no torch dependency.
 _sherpa_denoiser = None
 
-# Languages served by NVIDIA Parakeet-TDT 0.6B v3 (loaded via Sherpa-ONNX's
-# nemo_transducer backend). Only add a language here if you've actually
-# downloaded the Parakeet model AND it's in Parakeet v3's supported set
-# (en, es, fr, de, it, pt, nl, pl, ru, uk, and other EU languages — NOT
-# Vietnamese, which stays on Whisper below).
+# Languages served by Parakeet-TDT 0.6B v3. Only add one that Parakeet v3 supports;
+# Vietnamese is not supported and stays on Whisper.
 PARAKEET_LANGUAGES = {
     "english", "spanish", "french", "german", "italian",
     "portuguese", "polish", "russian", "ukrainian",
 }
 
-# Whisper language codes for every interview language the app can transcribe.
-# Anything not listed in PARAKEET_LANGUAGES is transcribed by Whisper.
+# Whisper handles every language not in PARAKEET_LANGUAGES.
 WHISPER_LANG_CODES = {
     "english": "en", "vietnamese": "vi", "spanish": "es", "french": "fr",
     "german": "de", "italian": "it", "portuguese": "pt", "russian": "ru",
@@ -95,7 +76,6 @@ WHISPER_LANG_CODES = {
     "japanese": "ja", "korean": "ko", "thai": "th",
 }
 
-# Offline voice folder (under sherpa_models/) for each language.
 # Other languages use sherpa_models/tts_<language>/ if download_models.py installed it.
 TTS_FOLDERS = {"english": "tts", "vietnamese": "tts_vi"}
 # Languages without a dedicated Piper/MMS voice folder are spoken by the multilingual
@@ -118,10 +98,6 @@ def flatten_text(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", stripped.casefold())
 
 
-# ============================================================
-# SHERPA-ONNX: SPEECH-TO-TEXT (ASR)
-# ============================================================
-
 # Cache recognizers per language so we don't re-instantiate on every request
 _sherpa_asr_recognizers = {}
 
@@ -142,9 +118,7 @@ def get_sherpa_asr_recognizer(language: str = "english"):
     if lang_key in PARAKEET_LANGUAGES:
         recognizer = _load_parakeet_recognizer()
         if recognizer is None:
-            # Parakeet model files aren't downloaded yet (or failed to load) —
-            # fall back to Whisper rather than returning nothing, so the app
-            # keeps working while Parakeet is being set up.
+            # Model files missing or failed to load; Whisper keeps the app working.
             print(f"[STT Fallback] Parakeet unavailable for '{lang_key}', falling back to Whisper")
             recognizer = _load_whisper_recognizer(lang_key)
     else:
@@ -227,21 +201,13 @@ def _rms(audio_chunk):
     return float(np.sqrt(np.mean(np.square(audio_chunk))))
 
 
-# If the DPDFNet model isn't downloaded yet, should we fall back to
-# noisereduce? On already-clean recordings (quiet room, decent mic),
-# noisereduce can over-subtract and *hurt* transcription accuracy rather
-# than help. Default is False: skip denoising entirely until DPDFNet is
-# set up, rather than risk degrading otherwise-good audio. Flip to True
-# only if your actual recording environment is genuinely noisy and you've
-# confirmed noisereduce helps more than it hurts for your mic/room.
+# noisereduce can over-subtract on clean recordings and hurt accuracy, so it is off by default.
+# Enable only if your recording environment is genuinely noisy.
 FALL_BACK_TO_NOISEREDUCE = False
 
 
 def _normalize_peak(samples: np.ndarray, target_peak: float = 0.98) -> np.ndarray:
-    """Scales audio down proportionally if its peak exceeds target_peak,
-    preserving waveform shape (unlike hard clipping, which flattens peaks
-    and introduces its own distortion). Leaves audio under the target
-    peak untouched."""
+    """Scales audio down when its peak exceeds target_peak. Unlike hard clipping, this keeps the waveform shape."""
     peak = float(np.abs(samples).max()) if samples.size else 0.0
     if peak > target_peak:
         samples = samples * (target_peak / peak)
@@ -249,11 +215,8 @@ def _normalize_peak(samples: np.ndarray, target_peak: float = 0.98) -> np.ndarra
 
 
 def _estimate_noise_floor(samples: np.ndarray, sample_rate: int, frame_ms: int = 20) -> float:
-    """Rough noise-floor estimate: average RMS of the quietest 10% of
-    short frames. Used to decide whether a recording is already clean
-    enough that denoising would do more harm (over-suppressed consonants,
-    the kind of artifact that turns 'mathematics' into 'Mehemetic') than
-    good."""
+    """Average RMS of the quietest 10% of short frames. Used to skip denoising on clean
+    recordings, where it over-suppresses consonants ('mathematics' became 'Mehemetic')."""
     if samples.size == 0:
         return 0.0
     frame_len = max(int(sample_rate * frame_ms / 1000), 1)
@@ -267,13 +230,8 @@ def _estimate_noise_floor(samples: np.ndarray, sample_rate: int, frame_ms: int =
     return float(np.mean(quietest))
 
 
-# RMS noise-floor below which a recording is considered "already clean"
-# and denoising is skipped entirely. Both DPDFNet and noisereduce showed
-# real evidence of over-suppression artifacts on clean, close-mic audio
-# (see chat history) — they help genuinely noisy recordings but can hurt
-# already-quiet ones. Tune this against your actual interview conditions:
-# raise it if noisy clips are slipping through undenoised, lower it if
-# clean clips are still getting degraded.
+# Recordings with a noise floor below this skip denoising, because DPDFNet and noisereduce
+# over-suppressed clean, close-mic audio. Raise it if noisy clips slip through, lower it if clean ones degrade.
 NOISE_FLOOR_SKIP_THRESHOLD = 0.01
 
 # Recordings whose loudest sample is below this are treated as silence (no mic signal).
@@ -317,14 +275,9 @@ def _load_sherpa_denoiser():
 
 
 def denoise_audio(samples: np.ndarray, sample_rate: int):
-    """Runs neural noise suppression on float32 mono audio in [-1, 1].
-    Prefers Sherpa-ONNX's built-in DPDFNet denoiser (same runtime as your
-    ASR/TTS, no extra dependencies). Falls back to noisereduce (pure
-    Python, weaker on non-stationary noise) if the DPDFNet model isn't
-    downloaded yet. Falls back to the original, unmodified audio if
-    neither is available or either errors out, so this is always safe
-    to call. Returns (samples, sample_rate) since the denoiser may hand
-    back audio at its own native rate."""
+    """Suppresses noise on float32 mono audio in [-1, 1]. Tries DPDFNet, then noisereduce
+    (only if FALL_BACK_TO_NOISEREDUCE), then returns the audio unmodified, so it is safe to call.
+    Returns (samples, sample_rate) because the denoiser may change the rate."""
     if samples.size == 0:
         return samples, sample_rate
 
@@ -500,7 +453,7 @@ def transcribe_audio_sherpa(samples, sample_rate: int = 16000, language: str = "
 
         result_text = stream.result.text.strip()
 
-        # Clean common Whisper subtitle hallucination artifacts
+        # Whisper hallucination artifacts
         hallucinations = [
             r"\(speaking in foreign language\)",
             r"\(speaking foreign language\)",
@@ -538,11 +491,6 @@ def listen_for_answer(language):
     return text
 
 
-# ============================================================
-# SHERPA-ONNX: TEXT-TO-SPEECH (TTS)
-# ============================================================
-
-# Cache for multi-language TTS engines
 _sherpa_tts_engines = {}
 # Why the offline voice was NOT used for a language (shown in the browser console via /api/tts)
 TTS_LAST_ERROR = {}
@@ -838,7 +786,7 @@ Otherwise, respond with ONLY the follow-up question.
             {"role": "user", "content": prompt}
         ],
         think=False,
-        keep_alive="30m"  # Same model as correct_transcript — keep it warm between the two call sites too.
+        keep_alive="30m"
     )
 
     result = response["message"]["content"].strip()
@@ -849,14 +797,9 @@ Otherwise, respond with ONLY the follow-up question.
 
 
 def correct_transcript(raw_text: str, question_context: str = "", language: str = "English") -> str:
-    """Runs a raw STT transcript through Ollama to fix likely speech-recognition
-    errors — including words the ASR mangled into something nonsensical
-    (e.g. "Mehemetic" instead of "mathematics") — without changing the
-    candidate's actual meaning. Uses reasoning mode (think=True) since
-    catching a garbled word and inferring the real one benefits from
-    actual deliberation, not a single fast pass. Always falls back to the
-    raw text on any error, since a failed cleanup pass should never lose
-    the answer."""
+    """Fixes likely speech-recognition errors in a raw transcript (e.g. "Mehemetic" for
+    "mathematics") without changing the candidate's meaning. Uses think=True so the model can
+    reason about garbled words. Returns raw_text on any error so a failed cleanup never loses the answer."""
     if not raw_text or not raw_text.strip():
         return raw_text
 
@@ -896,12 +839,7 @@ no preamble, explanation, reasoning, or quotation marks."""
                 {"role": "user", "content": prompt}
             ],
             think=True,
-            # Keeps the model resident in memory between requests. Without this,
-            # Ollama's default 5-minute idle timeout can unload an 8B model
-            # between answers (candidate is still talking/thinking), and the
-            # *next* correction pays a full reload before it even starts
-            # reasoning. This only affects memory residency, not reasoning
-            # depth or output quality.
+            # Ollama unloads idle models after 5 minutes; a reload mid-interview delays the next correction.
             keep_alive="30m"
         )
         result = response["message"]["content"].strip()

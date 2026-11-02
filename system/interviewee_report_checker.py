@@ -78,8 +78,7 @@ def main():
         print("No name entered.")
         sys.exit(1)
 
-    # Only search inside the script's own folder (not parent directories),
-    # so it doesn't pick up unrelated matches from sibling project folders.
+    # Search only the script's folder, not its parents, to avoid matches in sibling projects.
     folders = find_candidate_folders(interviewee_name, [SCRIPT_DIR])
 
     if not folders:
