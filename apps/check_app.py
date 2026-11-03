@@ -7,7 +7,6 @@ from flask import Flask, render_template, request, jsonify
 import sys
 import sqlite3
 
-# Add project root and system folder to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT / "system"))
 
@@ -131,7 +130,7 @@ def get_candidate_scores(candidate_name: str):
     if row is None:
         return empty
 
-    # SWAPPED: Overall score (row[2]) is now CV Score, Average per-q (row[1]) is Interview Score
+    # The keys are crossed on purpose: search_candidate swaps them back.
     return {
         "cv_score": str(row[2]) if row[2] is not None else "N/A",
         "interview_score": str(row[1]) if row[1] is not None else "N/A",
@@ -151,7 +150,6 @@ def extract_scores_from_md(report_path: Path):
         overall_match = re.search(r"Overall\s+score:\s*\*?\*?\s*([\d.]+)", content, re.IGNORECASE)
         avg_match = re.search(r"Average\s+per-question\s+score:\s*\*?\*?\s*([\d.]+)", content, re.IGNORECASE)
         
-        # Mapping per requirement:
         cv_score = overall_match.group(1) if overall_match else "N/A"
         interview_score = avg_match.group(1) if avg_match else "N/A"
         
@@ -182,18 +180,17 @@ def search_candidate():
         cv_score = "N/A"
         interview_score = "N/A"
         
-        # 1. First attempt: Extract directly from the Markdown report file on disk
+        # Prefer the Markdown report on disk; fall back to the database.
         if reports:
             cv_score, interview_score = extract_scores_from_md(reports[0])
             
-        # 2. Fallback attempt: Query SQLite DB if report was missing or scores couldn't be parsed
         if cv_score == "N/A" or interview_score == "N/A":
             db_scores = get_candidate_scores(query)
             if db_scores["cv_score"] == "N/A" and db_scores["interview_score"] == "N/A":
                 db_scores = get_candidate_scores(f.name)
             
             if cv_score == "N/A":
-                # In DB: interview_score holds 7.0 (Overall), cv_score holds 6.6 (Avg)
+                # Swap back: get_candidate_scores returns the two columns crossed.
                 cv_score = db_scores["interview_score"]
             if interview_score == "N/A":
                 interview_score = db_scores["cv_score"]
@@ -230,16 +227,13 @@ def get_report():
 
     md_content = report_path.read_text(encoding="utf-8")
 
-    # The report text is written by an LLM from the candidate's CV and answers, so it is
-    # untrusted. Markdown lets raw HTML through (<script>, <img onerror=...>), so the rendered
-    # HTML MUST be sanitized before the browser inserts it into the page. If either package is
-    # missing we fall back to escaped plain text instead of risking unsanitized HTML.
+    # The report is LLM-written from candidate input, so it is untrusted and markdown passes raw HTML through.
+    # Sanitize before rendering; without both packages, fall back to escaped plain text.
     if HAS_MARKDOWN and HAS_SANITIZER:
         html_content = nh3.clean(
             markdown.markdown(md_content, extensions=['tables', 'fenced_code'])
         )
     else:
-        # Fallback raw pre-formatted text
         html_content = f"<pre>{html.escape(md_content)}</pre>"
 
     return jsonify({

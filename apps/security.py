@@ -23,10 +23,8 @@ from flask_wtf.csrf import CSRFError, CSRFProtect
 
 csrf = CSRFProtect()
 
-# Everything the pages load comes from this site (scripts, CSS, fetch calls). The one
-# exception is the style attribute used throughout the templates, hence 'unsafe-inline'
-# for styles ONLY. Scripts are 'self' only: injected <script> tags and inline on*= handlers
-# will not run, which is the main safety net if an escaping bug ever slips through.
+# Everything loads from this site. 'unsafe-inline' is for styles only, because the templates use style attributes.
+# Scripts are 'self' only, so injected <script> tags and inline on*= handlers won't run if escaping ever fails.
 CONTENT_SECURITY_POLICY = "; ".join([
     "default-src 'self'",
     "script-src 'self'",
@@ -66,10 +64,8 @@ def _load_secret_key(project_root: Path) -> str:
 
 
 def init_security(app, project_root: Path):
-    # --- secret key (never fall back to a hard-coded value) ---------------------------
     app.config["SECRET_KEY"] = _load_secret_key(project_root)
 
-    # --- cookies ----------------------------------------------------------------------
     secure_cookies = os.environ.get("COOKIE_SECURE", "0").lower() in ("1", "true", "yes")
     app.config.update(
         SESSION_COOKIE_HTTPONLY=True,      # JavaScript (so also any injected script) can't read it
@@ -80,7 +76,6 @@ def init_security(app, project_root: Path):
         REMEMBER_COOKIE_SECURE=secure_cookies,
     )
 
-    # --- CSRF tokens ------------------------------------------------------------------
     # None = the token lives as long as the session. A one-hour limit would break an
     # interview that runs longer than that when it saves the answers at the end.
     app.config["WTF_CSRF_TIME_LIMIT"] = None
@@ -96,7 +91,6 @@ def init_security(app, project_root: Path):
             return redirect(url_for("index"))
         return redirect(request.path)
 
-    # --- security headers -------------------------------------------------------------
     @app.after_request
     def set_security_headers(response):
         response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)

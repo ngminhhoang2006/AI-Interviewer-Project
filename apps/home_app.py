@@ -13,7 +13,7 @@ from security import init_security
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Ensure `apps` directory is on python path so module imports work smoothly
+# apps/ must be importable for the sibling imports below.
 apps_dir = Path(__file__).resolve().parent
 if str(apps_dir) not in sys.path:
     sys.path.append(str(apps_dir))
@@ -23,26 +23,18 @@ from check_app import app as checker_app
 
 app = interview_app
 
-# Set templates and static paths relative to true root
 app.template_folder = str(PROJECT_ROOT / "templates")
 app.static_folder = str(PROJECT_ROOT / "static")
 
-# Database directory creation
 db_dir = PROJECT_ROOT / "database"
 db_dir.mkdir(parents=True, exist_ok=True)
 
-# App Configuration
 # SECRET_KEY, secure cookies, CSRF protection and security headers (see apps/security.py)
 init_security(app, PROJECT_ROOT)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_dir / 'interview_portal.db'}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# ----------------------------------------------------------------------
-# Flask-Mail Configuration (SMTP)
-# Never put credentials in source code. Set them in your shell (or a .env that is git-ignored):
-#   export MAIL_USERNAME="you@example.com"
-#   export MAIL_PASSWORD="<app password>"
-# ----------------------------------------------------------------------
+# SMTP credentials come from MAIL_USERNAME and MAIL_PASSWORD in the environment, never from source code.
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() in ['true', '1', 't']
@@ -67,12 +59,10 @@ serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Initialize Database and Create Default Admin
 with app.app_context():
     db.create_all()
     if not User.query.filter_by(role='admin').first():
-        # The first admin comes from the environment, never from source code:
-        #   export ADMIN_USERNAME="..." ADMIN_EMAIL="..." ADMIN_PASSWORD="..."
+        # The first admin comes from ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD, never from source code.
         admin_email = os.environ.get('ADMIN_EMAIL')
         admin_password = os.environ.get('ADMIN_PASSWORD')
         if admin_email and admin_password:
@@ -83,9 +73,6 @@ with app.app_context():
         else:
             print("[setup] No admin account exists. Set ADMIN_EMAIL and ADMIN_PASSWORD and restart to create one.")
 
-# ----------------------------------------------------------------------
-# Email Helper Functions
-# ----------------------------------------------------------------------
 def send_verification_email(recipient_email, code):
     """Sends a 6-digit OTP code to the recipient's email address."""
     try:
@@ -133,16 +120,12 @@ def send_password_reset_email(recipient_email, reset_url):
         print(f"Error sending password reset email: {e}")
         return False
 
-# ----------------------------------------------------------------------
-# Authentication Routes
-# ----------------------------------------------------------------------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         identifier = request.form.get('username', '').strip()
         password = request.form.get('password')
 
-        # Check if user exists by username OR email
         user = User.query.filter(
             (User.username == identifier) | (User.email == identifier)
         ).first()
@@ -180,7 +163,6 @@ def signup():
             flash('An account with this email already exists.', 'danger')
             return render_template('signup.html')
 
-        # Generate 6-digit OTP code (valid for 10 minutes)
         verification_code = f"{random.randint(100000, 999999)}"
         session['pending_user'] = {
             'username': username,
@@ -190,7 +172,6 @@ def signup():
             'expires_at': time.time() + 600  # 10 minutes
         }
 
-        # Send actual email
         sent = send_verification_email(email, verification_code)
         if sent:
             flash(f'Verification code sent to {email}!', 'success')
@@ -270,7 +251,7 @@ def forgot_password():
             else:
                 flash('Could not send reset email. Please try again later or check SMTP settings.', 'danger')
         else:
-            # Protect user privacy by returning generic success message
+            # Generic message so account existence isn't revealed.
             flash('If an account exists with that email, a password reset link has been sent.', 'info')
 
         return redirect(url_for('login'))
@@ -313,9 +294,6 @@ def logout():
         return redirect(url_for('login'))
     return redirect(url_for('index'))
 
-# ----------------------------------------------------------------------
-# Navigation Routes
-# ----------------------------------------------------------------------
 @app.endpoint("index")
 def homepage():
     return render_template("home.html")

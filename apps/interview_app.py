@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-# Add project root and system folder to sys.path
+# system/ holds the pipeline modules imported below.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT / "system"))
 
@@ -32,20 +32,13 @@ UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
 UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max limit
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# ---------------------------------------------------------------------------
-# Interview languages offered on the Step 2 page.
-#   value : English name sent to the LLM / speech code. It is also lower-cased
-#           into file names and URLs, so keep it a single word (no spaces).
-#   label : what the candidate sees in the dropdown.
-#   tag   : BCP-47 tag for the browser's built-in voice, used when Sherpa has
-#           no voice installed for the language (see system/chatbot.py).
-# To add a language, add one line here AND an entry in LANGUAGE_CODES in
-# WHISPER_LANG_CODES in system/chatbot.py (that one tells Whisper which language to listen for).
-# An offline voice is used if system/sherpa_models/tts_<value in lower case>/ exists
-# (python system/download_models.py); otherwise the browser voice is used.
-# ---------------------------------------------------------------------------
+# Interview languages for the Step 2 dropdown.
+#   value: English name sent to the LLM and speech code; lower-cased into file names and URLs, so one word.
+#   tag: BCP-47 tag for the browser voice, used when Sherpa has no voice for the language.
+# A new language also needs an entry in WHISPER_LANG_CODES in system/chatbot.py.
+# An offline voice is used if system/sherpa_models/tts_<value lower-cased>/ exists (system/download_models.py).
 SUPPORTED_LANGUAGES = [
     {"value": "English",    "label": "English",                  "tag": "en-US"},
     {"value": "Vietnamese", "label": "Vietnamese (Tiếng Việt)",  "tag": "vi-VN"},
@@ -154,7 +147,6 @@ def upload_cv():
     })
 
 
-# 1. Update redirection in generate_questions route
 @app.route("/generate_questions", methods=["POST"])
 def generate_questions():
     data = request.json or {}
@@ -207,14 +199,12 @@ def generate_questions():
     questions_path = cand_dir / f"{candidate_folder}_questions_{lang_slug}.json"
     questions_generator.save_questions(output, questions_path)
 
-    # UPDATED: Redirect to mic_test_page instead of direct interview_page
     return jsonify({
         "status": "success",
         "questions_file": questions_path.name,
         "redirect": url_for("mic_test_page", candidate=candidate_folder, lang=lang_slug)
     })
 
-# 2. Add the new Microphone Testing Route
 @app.route("/mic_test/<candidate>/<lang>")
 def mic_test_page(candidate, lang):
     return render_template(
@@ -272,22 +262,17 @@ def transcribe_audio():
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files["audio"]
-    # Extract language passed from Step 2 -> frontend session -> FormData
     language = request.form.get("language", "English")
     # The question currently being answered, used as context for LLM cleanup
     current_question = request.form.get("current_question", "")
 
-    # Read the uploaded webm straight into memory — no need to touch disk
-    # just to hand bytes to ffmpeg.
     audio_bytes = audio_file.read()
     SAMPLE_RATE = 16000
 
     try:
         ffmpeg_bin = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 
-        # Pipe webm bytes in via stdin, get raw 16-bit PCM straight out of
-        # stdout. This replaces two temp files (input webm + output wav) and
-        # their writes/reads/deletes with a single in-memory round trip.
+        # webm in via stdin, raw 16-bit PCM out via stdout, so no temp files.
         cmd = [
             ffmpeg_bin,
             "-y",
@@ -313,12 +298,10 @@ def transcribe_audio():
         samples_int16 = np.frombuffer(result.stdout, dtype=np.int16)
         samples_float32 = samples_int16.astype(np.float32) / 32768.0
 
-        # Pass language parameter to ASR engine (denoises with Sherpa-ONNX's
-        # DPDFNet denoiser, then routes to Parakeet or Whisper depending on language)
+        # Denoises, then routes to Parakeet or Whisper by language.
         raw_transcript = chatbot.transcribe_audio_sherpa(samples_float32, SAMPLE_RATE, language=language)
 
-        # LLM cleanup pass via Ollama: fixes misheard words/punctuation
-        # without changing what the candidate actually said
+        # Ollama pass fixes misheard words and punctuation without changing the meaning.
         corrected_transcript = chatbot.correct_transcript(
             raw_transcript,
             question_context=current_question,
@@ -436,7 +419,6 @@ def save_interview_scores(user_id, candidate, language, report):
         row = score_store.read_result(db_file, user_id, candidate)
         return row if row and score_store.scores_match(row, (overall, avg)) else None
 
-    # 1. normal save
     try:
         record = InterviewResult.query.filter_by(user_id=user_id, candidate_name=candidate).first()
         if record is None:
@@ -460,7 +442,6 @@ def save_interview_scores(user_id, candidate, language, report):
         problem = str(e)
     print(f"[DB] Saving the scores failed ({problem}). Trying the fallback...")
 
-    # 2. fallback: direct SQLite write + backfill from the report files on disk
     try:
         score_store.upsert_result(db_file, user_id, candidate, language, overall, avg, feedback)
         score_store.backfill(db_file, UPLOAD_FOLDER, names=[candidate])
@@ -485,7 +466,6 @@ def report_page(candidate):
     if not answers_path.exists():
         abort(404)
 
-    # 1. Read answers and generate the evaluation report
     data = json.loads(answers_path.read_text(encoding="utf-8"))
     report = grade_interview.grade_interview(
         data=data,
@@ -493,13 +473,12 @@ def report_page(candidate):
         job_title=data.get("job_position") or "AI Engineer",
         job_requirements=None
     )
-    
-    # Save report files to disk
+
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     md_path = cand_dir / f"{candidate}_answers_report.md"
     grade_interview.write_markdown_report(report, md_path)
 
-    # 2. SAVE TO DATABASE FOR CURRENT LOGGED-IN USER (verified, with fallbacks)
+    # Scores are saved only for a logged-in user.
     save_status = "not_logged_in"
     if current_user.is_authenticated:
         result_id, save_status = save_interview_scores(
@@ -514,7 +493,6 @@ def report_page(candidate):
                 db.session.rollback()
                 print(f"[DB Error] Could not save applicant profile: {e}")
 
-    # 3. Render template
     return render_template("report.html", report=report, save_status=save_status)
 
 if __name__ == "__main__":
