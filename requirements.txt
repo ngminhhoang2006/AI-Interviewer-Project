@@ -2,7 +2,7 @@
 # External requirements: ffmpeg, Ollama (https://ollama.com) with the model: ollama pull qwen3:8b
 # Linux system libs: libportaudio2 (sounddevice), build-essential + python3-dev (webrtcvad)
 ollama
-sherpa-onnx
+sherpa-onnx==1.13.8
 noisereduce
 webrtcvad
 sounddevice
