@@ -6,20 +6,8 @@ import re
 import unicodedata
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent
 
-
-# ============================================================
-# FIND JSON FILE
-# ============================================================
-
-# ============================================================
-# JOB POSITION
-# ============================================================
 
 MAX_JOB_POSITION_LENGTH = 100
 
@@ -46,14 +34,11 @@ def flatten_text(text: str) -> str:
     Strips diacritics, converts Vietnamese đ/Đ, handles non-breaking spaces,
     and removes ALL non-alphanumeric characters for clean string comparison.
     """
-    # Replace non-breaking spaces and Vietnamese Đ/đ
     text = text.replace("\u00a0", " ").replace("Đ", "D").replace("đ", "d")
-    
-    # Strip diacritics
+
     normalized = unicodedata.normalize("NFD", text)
     stripped = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
-    
-    # Keep only pure lowercase letters and numbers (removes spaces, hyphens, punctuation)
+
     return re.sub(r'[^a-z0-9]', '', stripped.casefold())
 
 
@@ -64,7 +49,6 @@ def find_json_file(applicant_name: str):
     applicant_name = applicant_name.strip().strip('"').strip("'")
     target_flat = flatten_text(applicant_name)
 
-    # Search from script dir up to parent roots
     search_roots = [BASE_DIR, BASE_DIR.parent, BASE_DIR.parent.parent]
 
     matching_dirs = []
@@ -73,11 +57,9 @@ def find_json_file(applicant_name: str):
             for d in root.rglob("*"):
                 if d.is_dir():
                     folder_flat = flatten_text(d.name)
-                    # Check exact flattened match or containment
                     if folder_flat and (folder_flat == target_flat or target_flat in folder_flat):
                         matching_dirs.append(d)
 
-    # Deduplicate matches
     matching_dirs = list(set(matching_dirs))
 
     if not matching_dirs:
@@ -87,7 +69,6 @@ def find_json_file(applicant_name: str):
             f"Searched roots: {[str(r) for r in search_roots]}"
         )
 
-    # Collect source JSON files inside matching folder(s)
     json_files = []
     for folder in matching_dirs:
         for file_path in folder.rglob("*.json"):
@@ -119,10 +100,6 @@ def find_json_file(applicant_name: str):
     return json_files[0]
 
 
-# ============================================================
-# LOAD RESUME
-# ============================================================
-
 def load_resume(path):
     print(f"\nLoading: {path}")
 
@@ -130,18 +107,9 @@ def load_resume(path):
         return json.load(file)
 
 
-# ============================================================
-# GENERATE QUESTIONS
-# ============================================================
-
-# ============================================================
-# ROBUST LLM CALL (long non-English output, JSON repair, retries)
-# ============================================================
-
 QUESTION_MODEL = "qwen3:8b"
-# Ollama's default context window is small. Vietnamese, Thai, Hindi, Arabic, ... need
-# several times more tokens than English, so the JSON was getting cut off mid-way.
-# Override with the INTERVIEW_NUM_CTX environment variable (lower it if you run out of memory).
+# Ollama's default context is too small for Vietnamese, Thai, Hindi, Arabic, ...: the JSON got cut off mid-way.
+# Override with INTERVIEW_NUM_CTX (lower it if you run out of memory).
 QUESTION_NUM_CTX = int(os.environ.get("INTERVIEW_NUM_CTX", "12288"))
 QUESTION_MAX_ATTEMPTS = 2
 
@@ -393,10 +361,6 @@ IMPORTANT RULES:
     return _ask_for_questions(system_msg, prompt, language)
 
 
-# ============================================================
-# SAVE QUESTIONS
-# ============================================================
-
 def save_questions(questions, output_path):
 
     with open(output_path, "w", encoding="utf-8") as file:
@@ -411,26 +375,19 @@ def save_questions(questions, output_path):
     print(output_path)
 
 
-# ============================================================
-# MAIN
-# ============================================================
-
 def main():
 
     print("========================================")
     print("       AI Interview Question Generator")
     print("========================================")
 
-    # Ask user for applicant name / folder name
     applicant_name = input("\nEnter applicant name: ")
 
-    # Find the JSON inside the applicant's folder
     json_path = find_json_file(applicant_name)
 
     print(f"\nFound JSON file:")
     print(json_path)
 
-    # Ask user for desired output language
     print("\nSelect question language:")
     print("1. English")
     print("2. Vietnamese (Tiếng Việt)")
@@ -445,20 +402,17 @@ def main():
     else:
         language = "English"
 
-    # Load CV
     resume = load_resume(json_path)
 
-    # Generate questions
     job_position = clean_job_position(
         input("\nJob position applying for (e.g. Software Engineer, AI Researcher): ")
     )
     questions = generate_questions(resume, language=language, job_position=job_position)
 
-    # Fetch candidate name and normalize non-breaking spaces (\u00a0) to regular spaces
+    # Normalize non-breaking spaces in the name.
     raw_name = resume.get("name", "candidate")
     clean_name = raw_name.replace("\u00a0", " ").strip()
 
-    # Build output payload with the cleaned candidate name
     output = {
         "candidate": clean_name,
         "language": language,
@@ -467,7 +421,6 @@ def main():
         "questions": questions
     }
 
-    # Construct candidate-and-language-specific filename
     candidate_slug = (
         clean_name
         .lower()

@@ -9,17 +9,14 @@ Runs the full AI interview pipeline end-to-end in one process:
     3. chatbot             -> conduct the interview and record answers
     4. grade_interview     -> grade the answers and produce a report
 
-Rather than re-implementing any logic, this script imports the four
-existing modules and calls their functions directly, passing the
-outputs of one stage straight into the next. This avoids re-searching
-the filesystem or re-typing the candidate's name/language at every
-step, since the orchestrator already knows the paths and values from
-the previous stage.
+This script imports the four modules and calls their functions directly,
+passing each stage's output into the next so paths, name and language
+are not searched for or re-entered at every step.
 
 Place this file in the same folder as cv_reader.py, questions_generator.py,
 chatbot.py, and grade_interview.py, then run:
 
-    python ai_interview_system.py.
+    python ai_interview_system.py
 """
 
 import argparse
@@ -28,11 +25,6 @@ import re
 import sys
 from pathlib import Path
 
-# --------------------------------------------------------------------
-# Import the four existing scripts as modules (their `main()` guards
-# mean nothing runs automatically on import -- we just get access to
-# their functions).
-# --------------------------------------------------------------------
 import cv_reader
 import questions_generator
 import chatbot
@@ -47,10 +39,6 @@ def banner(text: str) -> None:
     print(text)
     print("=" * 60)
 
-
-# ======================================================================
-# STAGE 1: CV -> structured JSON
-# ======================================================================
 
 def stage_cv_reader(pdf_name: str | None) -> tuple[Path, dict]:
     banner("STEP 1/4 — Reading CV")
@@ -87,10 +75,6 @@ def stage_cv_reader(pdf_name: str | None) -> tuple[Path, dict]:
 
     return cv_json_path, applicant
 
-
-# ======================================================================
-# STAGE 2: CV JSON -> interview questions JSON
-# ======================================================================
 
 def stage_questions_generator(
     cv_json_path: Path, resume: dict, language_choice: str | None,
@@ -146,10 +130,6 @@ def stage_questions_generator(
     return questions_path, clean_name, language, job_position
 
 
-# ======================================================================
-# STAGE 3: questions JSON -> answers JSON (the interview itself)
-# ======================================================================
-
 def stage_chatbot(
     questions_path: Path, candidate_name: str, language: str, voice_arg: bool = False
 ) -> Path:
@@ -165,7 +145,6 @@ def stage_chatbot(
     print(f"Loaded {len(all_questions)} questions.")
     print(f"Interview language: {language}")
 
-    # Determine whether to run voice mode
     voice_mode = voice_arg
     if not voice_arg:
         voice_mode = chatbot.ask_interview_mode()
@@ -184,10 +163,6 @@ def stage_chatbot(
     )
 
     return answers_path
-
-# ======================================================================
-# STAGE 4: answers JSON -> grading report (JSON + Markdown)
-# ======================================================================
 
 def stage_grade_interview(
     answers_path: Path,
@@ -225,10 +200,6 @@ def stage_grade_interview(
     print(f"JSON report: {out_json}")
     print(f"Markdown report: {out_md}")
 
-
-# ======================================================================
-# MAIN
-# ======================================================================
 
 def parse_args():
     parser = argparse.ArgumentParser(

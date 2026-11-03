@@ -25,7 +25,7 @@ def call_ollama(model: str, system: str, user: str, retries: int = 3) -> str:
     url = "http://localhost:11434/api/chat"
     payload = {
         "model": model,
-        "format": "json",  # Force native JSON output from Ollama
+        "format": "json",
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -50,11 +50,8 @@ def call_ollama(model: str, system: str, user: str, retries: int = 3) -> str:
 def extract_json_block(text: str) -> dict:
     """Parse the JSON object from model output.
 
-    Since we request `"format": "json"` from Ollama, `text` should already be
-    a clean JSON string in the common case -- try that first. Only fall back
-    to regex extraction (stripping <think> blocks and non-breaking spaces)
-    if the direct parse fails, and use a GREEDY match (`\\{.*\\}`) so nested
-    JSON objects aren't truncated at the first closing brace.
+    Tries a direct parse first (Ollama is asked for JSON), then strips <think> blocks
+    and non-breaking spaces, then falls back to a regex match.
     """
     try:
         return json.loads(text)
@@ -69,8 +66,7 @@ def extract_json_block(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # Greedy match: grabs from the first "{" to the LAST "}", so nested
-    # objects/arrays inside fields (e.g. inside "comment") aren't cut off.
+    # Greedy so nested objects aren't cut off at the first closing brace.
     match = re.search(r"\{.*\}", cleaned, re.DOTALL)
     if not match:
         raise ValueError(f"No JSON object found in model output:\n{text}")
@@ -131,7 +127,6 @@ def grade_interview(data: dict, model: str, job_title: str, job_requirements: st
             **grade,
         })
 
-    # Synthesize results
     summary_lines = []
     for r in results:
         summary_lines.append(
@@ -212,7 +207,6 @@ def find_default_input_json() -> Path:
 
     search_roots = [SCRIPT_DIR, SCRIPT_DIR.parent, SCRIPT_DIR.parent.parent]
 
-    # 1. Match applicant directories
     matching_dirs = []
     for root in search_roots:
         if root.exists():
@@ -224,7 +218,6 @@ def find_default_input_json() -> Path:
 
     matching_dirs = list(set(matching_dirs))
 
-    # 2. Collect answer JSON files
     candidates = []
     for folder in matching_dirs:
         for p in folder.rglob("*.json"):
@@ -232,7 +225,6 @@ def find_default_input_json() -> Path:
             if "answers" in flatten_text(p.name) and not p.name.lower().startswith("report"):
                 candidates.append(p)
 
-    # Fallback: search globally if folder matching fails
     if not candidates:
         for root in search_roots:
             if root.exists():
@@ -264,14 +256,12 @@ def prompt_for_json_choice(candidates: list[Path], script_dir: Path) -> Path:
         choice = input("Enter the number or exact filename of the file to grade: ").strip()
         if not choice:
             continue
-        # Allow selecting by list index
         if choice.isdigit():
             idx = int(choice)
             if 1 <= idx <= len(candidates):
                 return candidates[idx - 1]
             print(f"  [!] Please enter a number between 1 and {len(candidates)}.")
             continue
-        # Allow selecting by filename (with or without .json suffix)
         name = choice if choice.lower().endswith(".json") else f"{choice}.json"
         matches = [p for p in candidates if p.name == name]
         if matches:
@@ -305,7 +295,6 @@ def main():
     if not args.input_json.exists():
         parser.error(f"input_json path does not exist: {args.input_json}")
 
-    # Set report paths inside the applicant's directory if not explicitly overridden
     out_json = args.out if args.out else args.input_json.parent / f"{args.input_json.stem}_report.json"
     out_md = args.out_md if args.out_md else args.input_json.parent / f"{args.input_json.stem}_report.md"
 

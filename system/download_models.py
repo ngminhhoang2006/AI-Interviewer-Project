@@ -43,9 +43,6 @@ def log(*a):
     print(*a, flush=True)
 
 
-# ---------------------------------------------------------------------------
-# WHAT TO INSTALL  (edit here to change voices / models)
-# ---------------------------------------------------------------------------
 # Whisper size: tiny (110 MB download) < base (200 MB) < small (610 MB) < medium (1.8 GB).
 # Larger is noticeably better for Vietnamese, Thai, Hindi, Indonesian, ...
 WHISPER_SIZE = os.environ.get("AI_INTERVIEWER_WHISPER", "small")
@@ -53,10 +50,8 @@ WHISPER_SIZE = os.environ.get("AI_INTERVIEWER_WHISPER", "small")
 ENGLISH_VOICE = "vits-piper-en_US-lessac-medium"
 VIETNAMESE_VOICE = "vits-piper-vi_VN-vais1000-medium"
 
-# Extra offline voices, downloaded by default (about 60-75 MB each). The folder becomes tts_<language>.
-# Use --core-only to skip them, or --voices spanish french ... to pick some.
-# Japanese, Korean and Ukrainian have no Piper voice, so they use Supertonic 3 (one multilingual model,
-# see MULTILINGUAL_SPECS); Thai uses an MMS voice. Both are downloaded together with the extras.
+# Extra offline voices (~60-75 MB each), installed as tts_<language>. Skip with --core-only, pick with --voices.
+# Japanese, Korean and Ukrainian have no Piper voice and use Supertonic 3 (see MULTILINGUAL_SPECS); Thai uses MMS.
 EXTRA_VOICES = {
     "spanish":    "vits-piper-es_ES-davefx-medium",
     "french":     "vits-piper-fr_FR-siwis-medium",
@@ -109,8 +104,7 @@ MULTILINGUAL_SPECS = [
 def core_specs(whisper_size):
     return [
         Spec("asr", f"asr-models/sherpa-onnx-whisper-{whisper_size}.tar.bz2",
-             # Size-specific names: an English-only "small.en-encoder..." or a different size
-             # does NOT count as installed, so it gets replaced by the multilingual model.
+             # Size-specific names, so an English-only or different-size Whisper gets replaced.
              present=[f"{whisper_size}-encoder*.onnx", f"{whisper_size}-decoder*.onnx", f"{whisper_size}-tokens.txt"],
              prefer_int8=True, replace=True, label=f"asr (Whisper {whisper_size}, multilingual)"),
         Spec("asr_parakeet", "asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
@@ -121,9 +115,6 @@ def core_specs(whisper_size):
     ]
 
 
-# ---------------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------------
 def is_installed(spec):
     d = MODELS_DIR / spec.folder
     return d.is_dir() and all(any(d.glob(p)) for p in spec.present)

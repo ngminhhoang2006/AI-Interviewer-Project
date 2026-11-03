@@ -100,10 +100,6 @@ def extract_applicant_info(text):
         "awards": []
     }
 
-    # --------------------------------------------------
-    # EMAIL
-    # --------------------------------------------------
-
     email_pattern = r"""
         (?:✉|📧|email|e-mail|mail)\s*:?\s*
         ([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})
@@ -121,10 +117,6 @@ def extract_applicant_info(text):
         info["email"] = next(
             group for group in email_match.groups() if group
         )
-
-    # --------------------------------------------------
-    # PHONE
-    # --------------------------------------------------
 
     phone_pattern = r"""
         (?:
@@ -150,12 +142,7 @@ def extract_applicant_info(text):
             group for group in phone_match.groups() if group
         )
 
-        # Clean unnecessary spaces
         info["phone"] = phone.strip()
-
-    # --------------------------------------------------
-    # ADDRESS
-    # --------------------------------------------------
 
     address_pattern = r"""
         (?:
@@ -174,10 +161,6 @@ def extract_applicant_info(text):
 
     if address_match:
         info["address"] = address_match.group(1).strip()
-
-    # --------------------------------------------------
-    # AGE
-    # --------------------------------------------------
 
     age_pattern = r"""
         (?:
@@ -201,15 +184,7 @@ def extract_applicant_info(text):
         if age:
             info["age"] = int(age)
 
-    # --------------------------------------------------
-    # NAME
-    # --------------------------------------------------
-
     info["name"] = _guess_name(text)
-
-    # --------------------------------------------------
-    # SECTION EXTRACTION
-    # --------------------------------------------------
 
     sections = {
         "education": [
@@ -265,7 +240,6 @@ def extract_applicant_info(text):
         ]
     }
 
-    # Build a regex containing all section names
     all_sections = []
 
     for section_names in sections.values():
@@ -276,7 +250,6 @@ def extract_applicant_info(text):
         for section in all_sections
     )
 
-    # Find every section heading
     matches = list(
         re.finditer(
             rf"(?im)^\s*(?:{section_regex})\s*$",
@@ -297,7 +270,6 @@ def extract_applicant_info(text):
 
         section_text = text[start:end].strip()
 
-        # Determine which category this belongs to
         for category, names in sections.items():
 
             if heading in names:
@@ -317,12 +289,8 @@ def extract_applicant_info(text):
 
 def main():
 
-    # --------------------------------------------------
-    # ASK FOR PDF
-    # --------------------------------------------------
     pdf_name = input("Enter the CV filename / Nhập tên file CV: ").strip()
 
-    # Automatically append .pdf extension if user omitted it
     if not pdf_name.lower().endswith(".pdf"):
         pdf_name += ".pdf"
 
@@ -335,38 +303,19 @@ def main():
     print(f"\nFound PDF / Đã tìm thấy PDF:")
     print(pdf_path)
 
-    # --------------------------------------------------
-    # EXTRACT TEXT
-    # --------------------------------------------------
-
     text = extract_text(pdf_path)
-
-    # --------------------------------------------------
-    # PARSE CV
-    # --------------------------------------------------
 
     applicant = extract_applicant_info(text)
 
-    # --------------------------------------------------
-    # CREATE DIRECTORY & JSON OUTPUT PATH
-    # --------------------------------------------------
-
-    # Fallback to default folder name if name extraction fails
     raw_name = applicant.get("name") or "Unknown_Applicant"
 
-    # Sanitize name to avoid invalid directory characters (\ / : * ? " < > |)
+    # Strip characters that are invalid in directory names.
     safe_name = re.sub(r'[\\/*?:"<>|]', "", raw_name).strip()
 
-    # Create the folder named after the applicant relative to script_dir
     output_dir = pdf_path.parent / safe_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Path to save the JSON inside the applicant's folder
     output_path = output_dir / f"{safe_name}.json"
-
-    # --------------------------------------------------
-    # SAVE JSON
-    # --------------------------------------------------
 
     with open(
         output_path,
@@ -386,7 +335,6 @@ def main():
     print(f"JSON saved to:")
     print(output_path)
 
-    # Also display the result
     print("\nExtracted information:")
     print(
         json.dumps(
