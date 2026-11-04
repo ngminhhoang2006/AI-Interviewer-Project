@@ -7,24 +7,23 @@
      data-candidate="{{ candidate or '' }}" data-language="{{ language or 'English' }}"
      data-lang-tag="{{ language_tag or '' }}">
 
-    <!-- Interview mode selector -->
-    <div class="mode-banner">
-        <span class="mode-label">Interview mode</span>
-        <div class="mode-options">
-            <label for="modeVoice" class="radio-label">
-                <input type="radio" id="modeVoice" name="interviewMode" value="voice" checked>
-                Voice
-            </label>
-            <label for="modeText" class="radio-label">
-                <input type="radio" id="modeText" name="interviewMode" value="text">
-                Text
-            </label>
+    <div class="session-bar">
+        <p class="session-title">Interview session: <strong>{{ candidate or "Candidate" }}</strong></p>
+        <div class="mode-banner">
+            <span class="mode-label">Interview mode</span>
+            <div class="mode-options">
+                <label for="modeVoice" class="radio-label">
+                    <input type="radio" id="modeVoice" name="interviewMode" value="voice" checked>
+                    Voice
+                </label>
+                <label for="modeText" class="radio-label">
+                    <input type="radio" id="modeText" name="interviewMode" value="text">
+                    Text
+                </label>
+            </div>
         </div>
     </div>
 
-    <p class="session-title">Interview session: {{ candidate or "Candidate" }}</p>
-
-    <!-- Question block -->
     <div id="questionContainer">
         <div class="badge-group">
             <span id="qBadge" class="pill-badge"></span>
@@ -34,17 +33,16 @@
         <button id="btnReplay" class="btn btn-quiet btn-sm">Read the question aloud</button>
     </div>
 
-    <!-- Answer block -->
     <div class="answer-section">
         <label for="answerInput" class="input-label">Your answer</label>
         <textarea id="answerInput" rows="4" placeholder="Type your answer or use voice recording..."></textarea>
 
         <div class="controls-bar">
+            <span id="recordingStatus" class="loading-state"></span>
             <div class="btn-group">
                 <button id="btnRecord" class="btn btn-quiet">Start recording</button>
                 <button id="btnSubmit" class="btn">Submit answer</button>
             </div>
-            <span id="recordingStatus" class="loading-state"></span>
         </div>
     </div>
 

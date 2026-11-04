@@ -3,9 +3,19 @@
 {% block title %}Interview Evaluation Report{% endblock %}
 
 {% block content %}
+{% macro out_of_ten(value) -%}
+    {%- if value is not none -%}{{ value }}<span class="of">/10</span>{%- else -%}<span class="na">N/A</span>{%- endif -%}
+{%- endmacro %}
+{% set rec = report.overall.recommendation %}
+{% set rec_class = 'hire' if rec in ('Hire', 'Strong Hire') else ('nohire' if rec == 'No Hire' else '') %}
 <article class="report-sheet">
     <h1>Interview evaluation report</h1>
-    <h2 class="report-candidate">{{ report.candidate }}</h2>
+    <p class="report-candidate">{{ report.candidate }}</p>
+
+    <dl class="report-meta">
+        <div><dt>Job title</dt><dd>{{ report.job_title }}</dd></div>
+        <div><dt>Model</dt><dd>{{ report.model_used }}</dd></div>
+    </dl>
 
     {% if save_status in ('saved', 'saved_via_fallback') %}
     <p class="save-note save-ok">These scores have been saved to the interview records.</p>
@@ -15,36 +25,34 @@
     <p class="save-note save-warn">You are not logged in, so these scores were not added to the interview records. <a href="{{ url_for('login') }}">Log in</a> and open this report again to save them.</p>
     {% endif %}
 
-    <dl class="report-meta">
-        <dt>Job title</dt>
-        <dd>{{ report.job_title }}</dd>
-        <dt>Model</dt>
-        <dd>{{ report.model_used }}</dd>
-    </dl>
-
-    <div class="score-box">
-        <h3>Overall recommendation:
-            <span class="tag {{ 'hire' if 'Hire' in report.overall.recommendation else 'nohire' }}">
-                {{ report.overall.recommendation }}
-            </span>
-        </h3>
-        <p><strong>Overall score:</strong> {{ report.overall.overall_score }}/10</p>
-        <p><strong>Average answer score:</strong> {{ report.average_score }}/10</p>
-        <p><strong>Summary:</strong> {{ report.overall.summary }}</p>
-    </div>
+    <section class="verdict" aria-label="Verdict">
+        <div class="verdict-rec">
+            <p class="verdict-label">Recommendation</p>
+            <p><span class="tag {{ rec_class }}">{{ rec }}</span></p>
+        </div>
+        <dl class="verdict-scores">
+            <div><dt>Overall score</dt><dd class="figure">{{ out_of_ten(report.overall.overall_score) }}</dd></div>
+            <div><dt>Average answer score</dt><dd class="figure">{{ out_of_ten(report.average_score) }}</dd></div>
+        </dl>
+        <p class="verdict-summary">{{ report.overall.summary }}</p>
+    </section>
 
     <h2>Per-question breakdown</h2>
     {% for item in report.per_question %}
     <section class="q-card">
-        <h4>Q{{ item.question_number }}: {{ item.question }}</h4>
-        <p><strong>Answer:</strong> {{ item.answer }}</p>
-        <p><strong>Score:</strong> {{ item.score }}/10</p>
-        <p><strong>Strengths:</strong> {{ item.strengths }}</p>
-        <p><strong>Concerns:</strong> {{ item.concerns }}</p>
-        <p><strong>Comment:</strong> {{ item.comment }}</p>
+        <div class="q-head">
+            <h3>Q{{ item.question_number }}: {{ item.question }}</h3>
+            <p class="q-score figure">{{ out_of_ten(item.score) }}</p>
+        </div>
+        <dl class="q-fields">
+            <dt>Answer</dt><dd>{{ item.answer }}</dd>
+            <dt>Strengths</dt><dd>{{ item.strengths }}</dd>
+            <dt>Concerns</dt><dd>{{ item.concerns }}</dd>
+            <dt>Comment</dt><dd>{{ item.comment }}</dd>
+        </dl>
     </section>
     {% endfor %}
 
-    <a href="/" class="btn back-link">Back to home</a>
+    <a href="/" class="btn btn-quiet back-link">Back to home</a>
 </article>
 {% endblock %}

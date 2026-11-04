@@ -17,8 +17,7 @@
     {% endif %}
 </div>
 
-<div class="card setup-card">
-    <!-- Device selection -->
+<div class="card setup-card mic-card">
     <div class="form-group">
         <label for="micSelect">Audio input device</label>
         <select id="micSelect" class="form-select">
@@ -28,7 +27,6 @@
 
     <hr class="divider">
 
-    <!-- Input level -->
     <div class="form-group">
         <h2>1. Test the input level</h2>
         <p class="candidate-info">Speak into your microphone and watch the meter respond.</p>
@@ -43,7 +41,6 @@
 
     <hr class="divider">
 
-    <!-- Record and play back -->
     <div class="form-group">
         <h2>2. Test playback</h2>
         <p class="candidate-info">Record a short phrase and play it back to confirm the audio is clear.</p>
@@ -53,7 +50,6 @@
         <audio id="audioPlayback" class="test-audio-preview" controls></audio>
     </div>
 
-    <!-- Step 3 link, only shown during the active interview workflow -->
     {% if candidate %}
     <hr class="divider">
     <div class="form-actions">
