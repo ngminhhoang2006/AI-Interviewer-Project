@@ -36,13 +36,13 @@
             {% for r in results %}
             <tr>
                 {% if is_admin %}
-                <td>{{ r.user_id }}</td>
+                <td data-label="User ID">{{ r.user_id }}</td>
                 {% endif %}
-                <td><strong>{{ r.candidate_name }}</strong></td>
-                <td>{{ r.language }}</td>
-                <td class="num{{ ' na' if r.cv_score is none }}">{{ r.cv_score if r.cv_score is not none else 'N/A' }}</td>
-                <td class="num{{ ' na' if r.interview_score is none }}">{{ r.interview_score if r.interview_score is not none else 'N/A' }}</td>
-                <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td data-label="Candidate"><strong>{{ r.candidate_name }}</strong></td>
+                <td data-label="Language">{{ r.language }}</td>
+                <td data-label="CV score" class="num{{ ' na' if r.cv_score is none }}">{{ r.cv_score if r.cv_score is not none else 'N/A' }}</td>
+                <td data-label="Interview score" class="num{{ ' na' if r.interview_score is none }}">{{ r.interview_score if r.interview_score is not none else 'N/A' }}</td>
+                <td data-label="Date">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             </tr>
             {% endfor %}
         </tbody>
