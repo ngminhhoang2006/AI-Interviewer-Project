@@ -1,14 +1,10 @@
-/* Hallmark · shape: kept · genre: modern-minimal · theme: Cobalt (by request) · redesign: restyle
- * hero: kept · nav: kept · footer: none · imagery: none (a generated ASCII field behind the home hero) · signature: the home hero as a field that runs raw on the left and resolved on the right, the interview question set on a graphite panel
- * axes: light/grotesk-sans/cool · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
-/* Hallmark · pre-emit critique: P4 H4 E3 S4 R4 V3 · weakest: E, pages are still type and rules without a real product capture; the field and the graphite question panel carry the identity until screenshots are supplied */
-/* waive: 54 on report.html, the Job title / Model list is a real definition list of report fields, not an eyebrow. answered: F4, the quiet and danger keys are paper keycaps beside one cobalt primary, as Cobalt specifies; 49, key labels wrap on small screens rather than clip; content is centred as in the previous pass, which the owner asked for; layout is kept at restyle depth. Cobalt faces load only where installed (CSP font-src 'self'), system stacks follow. */
+/* Cobalt on paper, one graphite panel per page (the interview question), keycap buttons.
+ * Cut corners need corner-shape support and fall back to a plain radius. Cobalt faces load only where
+ * installed (CSP font-src 'self'); system stacks follow. */
 @import url("./tokens.css");
 @import url("./base.css");
 
-/* ==========================================================================
-   1. Reset overrides for this app (base.css sets display-scale heads)
-   ========================================================================== */
+/* Reset overrides for this app (base.css sets display-scale heads) */
 h1, h2, h3, h4 { max-width: none; margin: 0 0 var(--space-xs); color: var(--color-ink); line-height: 1.12; }
 h1 { font-size: clamp(1.75rem, 2vw + 1rem, 2.25rem); }
 h2 { font-size: var(--text-xl); }
@@ -40,9 +36,7 @@ label {
     font-weight: 500;
 }
 
-/* ==========================================================================
-   2. Navigation
-   ========================================================================== */
+/* Navigation */
 .navbar {
     display: flex;
     flex-wrap: wrap;
@@ -81,16 +75,14 @@ label {
 .navbar .nav-links a:hover { border-bottom-color: var(--color-rule-2); color: var(--color-ink); }
 .navbar .nav-links a.active { border-bottom-color: var(--color-accent); color: var(--color-ink); }
 
-/* ==========================================================================
-   3. Layout
-   ========================================================================== */
+/* Layout */
 .main-container { max-width: var(--container); margin: 0 auto; padding: var(--space-xl) var(--gutter) var(--space-2xl); }
 
-.page-header { max-width: var(--form-width); margin: 0 auto var(--space-lg); text-align: center; }
+.page-header { max-width: var(--form-width); margin: 0 auto var(--space-lg); }
 .page-header h1 { margin-bottom: var(--space-xs); }
 .subtitle { margin: 0; color: var(--color-muted); font-size: var(--text-md); }
 
-/* Home hero: a ruled field panel. The canvas (field.js) sits behind the text. */
+/* Home hero: a ruled field panel. The canvas (field.js) sits behind the text; the dot grid is its no-script fallback. */
 .hero {
     position: relative;
     isolation: isolate;
@@ -121,22 +113,22 @@ label {
 
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-md) var(--space-lg); }
 
-/* Home: how an interview runs, a ruled ledger */
+/* Home: how an interview runs, a ruled ledger. Left-aligned so the centred hero above it reads as the one symmetric moment. */
 .process { max-width: 52rem; margin: 0 auto; padding: 0; border-top: var(--rule-hair) solid var(--color-ink); list-style: none; counter-reset: step; }
 
 .process li {
     counter-increment: step;
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-xs);
+    grid-template-columns: 2.5rem minmax(0, 14rem) minmax(0, 1fr);
+    gap: var(--space-xs) var(--space-lg);
+    align-items: baseline;
     padding: var(--space-lg) 0;
     border-bottom: var(--rule-hair) solid var(--color-rule);
-    text-align: center;
 }
 
 .process li::before {
-    content: counter(step);
-    color: var(--color-accent);
+    content: counter(step, decimal-leading-zero);
+    color: var(--color-muted);
     font-family: var(--font-display);
     font-size: var(--text-sm);
     font-weight: 500;
@@ -144,7 +136,7 @@ label {
 }
 
 .process h2 { margin: 0; font-size: var(--text-lg); font-weight: 500; }
-.process p { max-width: 40rem; margin: 0 auto; color: var(--color-ink-2); }
+.process p { max-width: 40rem; margin: 0; color: var(--color-ink-2); }
 
 /* Panels: cut on two opposite corners, one level only */
 .card {
@@ -156,21 +148,18 @@ label {
 }
 
 .setup-card, .interview-card { max-width: var(--form-width); margin-left: auto; margin-right: auto; }
-.card > h2, .card > h3, #step-upload > h3, #step-questions > h3, .form-group > h2 { text-align: center; }
-.search-card, .report-view { max-width: 52rem; margin: var(--space-lg) auto 0; }
+.search-card, .report-view { margin-top: var(--space-lg); }
+.checker-col { max-width: 60rem; margin: 0 auto; }
+.checker-col .page-header { max-width: none; margin: 0 0 var(--space-lg); }
 .interview-card { max-width: 46rem; }
-.card .subtitle, .card .candidate-info { text-align: center; }
 .back-link { margin-top: var(--space-lg); }
-.report-sheet > .back-link { display: flex; width: max-content; margin-left: auto; margin-right: auto; }
 .text-center { text-align: center; }
 
 @supports (corner-shape: bevel) {
     .card, .login-card, .confirm-dialog, .hero, #questionContainer { border-radius: var(--cut-l) 4px; corner-shape: bevel round bevel round; }
 }
 
-/* ==========================================================================
-   4. Forms
-   ========================================================================== */
+/* Forms */
 input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="file"]),
 select,
 textarea {
@@ -228,6 +217,9 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 
 .field-hint { display: block; margin-top: var(--space-2xs); color: var(--color-muted); font-size: var(--text-xs); }
 .form-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-md); margin-top: var(--space-lg); }
+#uploadForm .btn { align-self: center; }
+
+.field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 var(--space-lg); align-items: start; }
 
 .field-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-xs); margin-bottom: var(--space-2xs); }
 .field-row label { margin: 0; }
@@ -239,8 +231,10 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 .file-dropzone {
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--space-2xs);
     margin-top: var(--space-2xs);
     padding: var(--space-xl) var(--space-md);
     border: var(--rule-hair) dashed var(--color-muted);
@@ -261,12 +255,11 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 .file-dropzone input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 
 .file-text { color: var(--color-ink-2); font-weight: 400; }
+.file-hint { color: var(--color-muted); font-size: var(--text-xs); }
 .file-text.file-selected { color: var(--color-ink); font-family: var(--font-display); font-weight: 500; overflow-wrap: anywhere; }
 .field-error { color: var(--color-error); }
 
-/* ==========================================================================
-   5. Keys: one primary (solid cobalt), one quiet, one destructive
-   ========================================================================== */
+/* Keys: one primary (solid cobalt), one quiet, one destructive */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -334,21 +327,21 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 
 .link-button:hover { text-decoration-color: var(--color-accent); }
 
-/* ==========================================================================
-   6. Interview session
-   ========================================================================== */
-.mode-banner {
+/* Interview session */
+.session-bar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: var(--space-xs) var(--space-md);
+    justify-content: space-between;
+    gap: var(--space-sm) var(--space-lg);
     margin-bottom: var(--space-lg);
     padding-bottom: var(--space-md);
     border-bottom: var(--rule-hair) solid var(--color-rule);
-    text-align: center;
 }
 
+.session-title { margin: 0; color: var(--color-ink-2); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
+.session-title strong { color: var(--color-ink); }
+.mode-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
 .mode-label { color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
 
 /* Options: keys on a sunken tray, the chosen one pressed */
@@ -371,9 +364,7 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 .radio-label:has(input:checked) { border-color: var(--color-rule-2); background: var(--color-key-face); box-shadow: var(--shadow-key-press); color: var(--color-ink); }
 .radio-label:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
-.session-title { margin-bottom: var(--space-md); color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; text-align: center; }
-
-.badge-group { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-xs); margin-bottom: var(--space-md); }
+.badge-group { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-bottom: var(--space-md); }
 .pill-badge:empty { display: none; }
 
 .pill-badge, .role-badge {
@@ -393,7 +384,6 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
     border-radius: var(--radius-card);
     background-color: var(--color-graphite);
     color: var(--color-graphite-ink);
-    text-align: center;
 }
 
 #questionContainer .pill-badge { border-color: var(--color-graphite-glyph-2); color: var(--color-graphite-muted); }
@@ -404,41 +394,31 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
     color: var(--color-graphite-ink);
     font-size: clamp(1.375rem, 1.5vw + 1rem, 2rem);
     line-height: 1.25;
-    text-align: center;
 }
 
 .answer-section { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: var(--rule-hair) solid var(--color-rule); }
 .input-label { margin-bottom: var(--space-2xs); }
 
-.controls-bar { display: flex; flex-direction: column; align-items: center; gap: var(--space-xs); margin-top: var(--space-md); }
-.btn-group { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-sm); }
+.controls-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-top: var(--space-md); }
+.btn-group { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.controls-bar .btn-group { margin-left: auto; }
 
-.loading-state { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); text-align: center; }
-#status { margin-top: var(--space-md); }
+.loading-state { margin: 0; color: var(--color-ink-2); font-size: var(--text-sm); }
+#status { margin-top: var(--space-md); text-align: center; }
 #step-upload > h3, #step-questions > h3 { margin-bottom: var(--space-md); }
 .loading-state:empty { display: none; }
 .loading-state + .btn, #step-questions .btn-lg { margin-top: var(--space-xs); }
 
-/* ==========================================================================
-   7. Reports
-   ========================================================================== */
+/* Reports */
 .report-sheet { max-width: 48rem; margin: 0 auto; }
-.report-sheet > h1, .report-sheet > h2 { text-align: center; }
 .report-sheet > h1 { margin-bottom: var(--space-2xs); }
 .report-sheet > h2 { margin: var(--space-xl) 0 var(--space-xs); }
+.report-candidate { margin: 0 0 var(--space-md); color: var(--color-ink-2); font-size: var(--text-lg); }
 
-.report-sheet > h2.report-candidate {
-    margin: 0 0 var(--space-md);
-    padding: 0;
-    border: none;
-    color: var(--color-ink-2);
-    font-size: var(--text-lg);
-    font-weight: 500;
-}
-
-.report-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2xs) var(--space-lg); margin: 0 0 var(--space-lg); }
-.report-meta dt { color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; text-align: right; }
-.report-meta dd { margin: 0; }
+.report-meta { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-xl); margin: 0 0 var(--space-lg); }
+.report-meta > div { display: flex; gap: var(--space-xs); }
+.report-meta dt { color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
+.report-meta dd { margin: 0; font-size: var(--text-sm); }
 
 /* Status: text with one mark, hairline edge, no status-coloured fill */
 .save-note, .login-alert {
@@ -461,9 +441,25 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 .alert-success { color: var(--color-success); }
 .alert-success::before { content: "✓"; content: "✓" / ""; }
 
-.score-box { margin: var(--space-lg) 0; padding: var(--space-lg) 0 0; border-top: var(--rule-hair) solid var(--color-ink); }
-.score-box h3 { margin: 0 0 var(--space-md); max-width: none; text-align: center; }
-.score-box p { margin: var(--space-2xs) 0; }
+/* The verdict is the one thing a reader came for, so it leads the page and carries the largest type on it */
+.verdict {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-md) var(--space-xl);
+    align-items: end;
+    margin: var(--space-lg) 0 var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: var(--rule-hair) solid var(--color-ink);
+}
+
+.verdict-label, .verdict-scores dt { margin: 0 0 var(--space-2xs); color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
+.verdict-rec p:last-child { margin: 0; }
+.verdict-rec .tag { padding: var(--space-2xs) var(--space-md); font-size: var(--text-xl); }
+.verdict-scores { display: flex; gap: var(--space-xl); margin: 0; }
+.verdict-scores dd { margin: 0; font-family: var(--font-display); font-size: var(--text-3xl); font-weight: 600; line-height: 1; }
+.of { margin-left: 0.1em; color: var(--color-muted); font-size: var(--text-md); font-weight: 400; }
+.na { color: var(--color-muted); font-weight: 400; }
+.verdict-summary { grid-column: 1 / -1; max-width: 60ch; margin: 0; color: var(--color-ink-2); font-size: var(--text-lead); line-height: 1.45; }
 
 .tag { display: inline-block; padding: var(--space-3xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--cut); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
 .tag.hire { color: var(--color-success); }
@@ -472,8 +468,12 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 .tag.nohire::before { content: "× "; content: "× " / ""; }
 
 .q-card { padding: var(--space-lg) 0; border-bottom: var(--rule-hair) solid var(--color-rule); }
-.q-card h4 { margin-bottom: var(--space-xs); font-size: var(--text-lg); text-align: center; }
-.q-card p { margin: var(--space-2xs) 0; line-height: 1.55; }
+.q-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-md); margin-bottom: var(--space-md); }
+.q-head h3 { margin: 0; font-size: var(--text-lg); font-weight: 500; }
+.q-score { margin: 0; font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; white-space: nowrap; }
+.q-fields { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--space-xs) var(--space-md); margin: 0; }
+.q-fields dt { color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
+.q-fields dd { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
 
 /* Admin search and report viewer */
 .results-container { margin-top: var(--space-md); }
@@ -507,14 +507,14 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 }
 
 .results-table td { padding: var(--space-sm); border-bottom: var(--rule-hair) solid var(--color-rule); }
+.results-table .num { text-align: right; }
 .results-table tbody tr:hover { background-color: var(--color-accent-wash); }
 
-/* ==========================================================================
-   8. Auth pages
-   ========================================================================== */
+/* Auth pages */
 .login-card { max-width: 26rem; margin: var(--space-xl) auto; padding: var(--space-xl) var(--space-lg); }
 .login-card h2 { margin-bottom: var(--space-xs); text-align: center; }
-.login-card .page-header { margin-bottom: var(--space-lg); }
+.login-card .page-header { max-width: none; text-align: center; }
+.login-card > .subtitle { text-align: center; }
 .login-card > .subtitle { margin-bottom: var(--space-lg); }
 .login-card .btn { width: 100%; margin-top: var(--space-xs); }
 
@@ -525,35 +525,45 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 .code-input { font-family: var(--font-outlier); font-size: var(--text-lg); font-variant-numeric: tabular-nums; letter-spacing: 0.25em; text-align: center; }
 .resend-form { margin-top: var(--space-md); }
 
-/* ==========================================================================
-   9. Microphone test: the level is a meter of cells
-   ========================================================================== */
+/* Microphone test: the level is a meter of cells */
 .meter-container {
+    container-type: inline-size;
     width: 100%;
-    height: 1rem;
+    height: 1.25rem;
     margin: var(--space-md) 0;
+    overflow: hidden;
+    border-radius: 10px;
     background-color: var(--color-rule);
-    -webkit-mask-image: repeating-linear-gradient(90deg, var(--color-ink) 0 6px, transparent 6px 8px);
-    mask-image: repeating-linear-gradient(90deg, var(--color-ink) 0 6px, transparent 6px 8px);
 }
 
-.meter-fill { width: 0; height: 100%; background-color: var(--color-accent); }
+/* The gradient is sized to the whole track (container query units), so a short fill shows only the green end */
+.meter-fill {
+    width: 0;
+    height: 100%;
+    background-color: #10b981;
+    background-image: linear-gradient(90deg, #10b981 0%, #f59e0b 65%, #dc2626 100%);
+    background-size: 100cqw 100%;
+    background-repeat: no-repeat;
+    transition: width 0.05s ease-out;
+}
+
+/* Browsers without container query units keep the old solid green bar */
+@supports not (width: 1cqw) {
+    .meter-fill { background-image: none; }
+}
 
 .test-audio-preview { width: 100%; margin-top: var(--space-md); }
+.mic-card .btn-group, .mic-card .form-actions { justify-content: center; }
 .candidate-info { margin: 0 0 var(--space-xs); color: var(--color-ink-2); }
-#micStatus { margin-bottom: var(--space-md); text-align: center; }
+#micStatus { margin-bottom: var(--space-md); }
 .is-ok { color: var(--color-success); font-weight: 500; }
 .is-error { color: var(--color-error); font-weight: 500; }
 
-/* ==========================================================================
-   10. Utilities and messages
-   ========================================================================== */
+/* Utilities and messages */
 .hidden { display: none !important; }
 .empty-msg { margin: var(--space-xs) 0; color: var(--color-muted); }
 
-/* ==========================================================================
-   11. Confirmation dialog (built by confirm.js)
-   ========================================================================== */
+/* Confirmation dialog (built by confirm.js) */
 .confirm-overlay {
     position: fixed;
     inset: 0;
@@ -607,23 +617,25 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 
 .confirm-btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
-/* ==========================================================================
-   12. Motion
-   ========================================================================== */
+/* Motion */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* ==========================================================================
-   13. Small screens
-   ========================================================================== */
+/* Small screens */
 @media (max-width: 40rem) {
     .hero { padding: var(--space-xl) var(--space-md); }
-    .report-meta { grid-template-columns: minmax(0, 1fr); }
-    .report-meta dt { text-align: left; }
-    .report-meta dd { margin-bottom: var(--space-xs); }
+    .process li { grid-template-columns: 2rem minmax(0, 1fr); }
+    .process p { grid-column: 2; }
+    .field-grid { grid-template-columns: minmax(0, 1fr); }
+    .verdict { grid-template-columns: minmax(0, 1fr); align-items: start; }
+    .q-head { flex-direction: column; gap: var(--space-2xs); }
+    .q-fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .q-fields dd { margin-bottom: var(--space-xs); }
+    .session-bar { flex-direction: column; align-items: flex-start; }
+    .controls-bar .btn-group { width: 100%; margin-left: 0; }
+    .controls-bar .btn-group .btn { flex: 1; }
     .search-box, .admin-search-box { flex-direction: column; }
     .report-item-row { flex-wrap: wrap; }
-    .mode-options { flex-direction: column; width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
