@@ -45,7 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const average = values / array.length;
-        const pct = Math.min(100, Math.round((average / 128) * 100));
+        // Speech averages about 10-40 on this scale; a square-root curve lets normal talking reach the amber and red end.
+        const pct = Math.min(100, Math.round(Math.sqrt(average / 64) * 100));
         meterFill.style.width = pct + '%';
 
         animationFrameId = requestAnimationFrame(updateMeter);

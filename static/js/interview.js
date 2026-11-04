@@ -1,8 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Config injected by the server via the DOM (see interview.html) —
-    // questions is JSON parsed out of a <script type="application/json"> block
-    // (safe against JSON containing "</script>", quotes, etc.); candidate/language
-    // come from data-* attributes since they're plain strings.
+    // Config comes from the DOM (see interview.html): questions as JSON in a <script type="application/json">
+    // block, which is safe against "</script>" in the text; candidate and language from data-* attributes.
     const configEl = document.getElementById("interviewConfig");
     const questions = JSON.parse(document.getElementById("questionsData").textContent || "[]");
     const candidate = configEl.dataset.candidate || "";
@@ -88,9 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!synth) return;
 
         const utterance = new SpeechSynthesisUtterance(text);
-        // The server sends a BCP-47 tag for the chosen language (data-lang-tag).
-        // `language` itself arrives lower-cased from the URL ("vietnamese"), so the
-        // old capitalised map never matched and every language read as en-US.
+        // Prefer the server's BCP-47 tag (data-lang-tag); `language` arrives lower-cased from the URL.
         const fallbackMap = {
             'english': 'en-US', 'vietnamese': 'vi-VN', 'spanish': 'es-ES', 'french': 'fr-FR',
             'german': 'de-DE', 'italian': 'it-IT', 'portuguese': 'pt-BR', 'russian': 'ru-RU',

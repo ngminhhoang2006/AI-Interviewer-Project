@@ -1,7 +1,8 @@
 /* Home hero ground: an ASCII field on an 8 by 16 cell.
-   Raw characters on the left (a résumé as it arrives), resolved lattice on the
-   right (the scored report). The centre stays clear so the headline never sits on a dense cell.
-   Colours are read from the CSS tokens. Without script the hero keeps its CSS dot grid. */
+   Raw characters on the left (a résumé as it arrives), resolved lattice on the right (the scored report).
+   The centre stays clear so the headline never sits on a dense cell. Colours come from the CSS tokens.
+   The field is drawn once and redraws only while the pointer moves over it, so nothing loops on its own.
+   Without script the hero keeps its CSS dot grid. */
 (function () {
     "use strict";
     var hero = document.querySelector(".hero");
@@ -25,7 +26,7 @@
     var RAW = " .:-=+*#%@";
     var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    var cols = 0, rows = 0, dpr = 1, pointer = null, running = false, visible = true, last = 0;
+    var cols = 0, rows = 0, dpr = 1, pointer = null;
 
     function size() {
         var rect = hero.getBoundingClientRect();
@@ -76,35 +77,27 @@
         }
     }
 
-    function frame(now) {
-        if (!running) return;
-        if (now - last >= 33) { last = now; draw(now / 1600); } // about 30 fps
-        requestAnimationFrame(frame);
+    var T0 = 2.4;       // a fixed phase of the noise, chosen for a balanced starting picture
+    var queued = false;
+    function redraw() {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(function () { queued = false; draw(T0); });
     }
 
-    function start() { if (reduced || running || !visible || document.hidden) return; running = true; requestAnimationFrame(frame); }
-    function stop() { running = false; }
-
     size();
-    draw(0);
+    draw(T0);
 
     if (!reduced) {
         hero.addEventListener("pointermove", function (e) {
             var rect = hero.getBoundingClientRect();
             pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            redraw();
         });
-        hero.addEventListener("pointerleave", function () { pointer = null; });
-        document.addEventListener("visibilitychange", function () { document.hidden ? stop() : start(); });
-        if ("IntersectionObserver" in window) {
-            new IntersectionObserver(function (entries) {
-                visible = entries[0].isIntersecting;
-                visible ? start() : stop();
-            }).observe(hero);
-        }
-        start();
+        hero.addEventListener("pointerleave", function () { pointer = null; redraw(); });
     }
 
     if ("ResizeObserver" in window) {
-        new ResizeObserver(function () { size(); draw(reduced ? 0 : last / 1600); }).observe(hero);
+        new ResizeObserver(function () { size(); draw(T0); }).observe(hero);
     }
 })();

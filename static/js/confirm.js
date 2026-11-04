@@ -8,7 +8,6 @@
 (function () {
     "use strict";
 
-    // ------------------------------------------------------------------ dialog
     function confirmDialog(options) {
         const o = Object.assign(
             { title: "Are you sure?", message: "", confirmText: "Confirm", cancelText: "Cancel", danger: false, hideCancel: false },
@@ -96,7 +95,6 @@
         return confirmDialog(Object.assign({ confirmText: "OK" }, options || {}, { hideCancel: true }));
     };
 
-    // --------------------------------------------------------------- nav bar
     let dialogOpen = false;
 
     document.addEventListener("click", async function (event) {
@@ -151,11 +149,8 @@
             }
         }
     });
-    // ------------------------------------------------- browser back / refresh / close tab
-    // Shows the browser's own "Leave site?" warning while an interview is in progress.
-    // (Browsers don't allow a custom message here.) It does not fire after the interview has
-    // finished, or after the person confirmed leaving through the dialog above, because both
-    // set window.interviewInProgress = false before navigating.
+    // The browser's own "Leave site?" warning (it allows no custom message) while an interview is in progress.
+    // Both a finished interview and a confirmed leave set window.interviewInProgress = false first.
     window.addEventListener("beforeunload", function (event) {
         if (window.interviewInProgress === true) {
             event.preventDefault();
