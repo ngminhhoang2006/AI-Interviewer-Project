@@ -73,6 +73,7 @@ label {
 }
 
 .navbar .nav-links a:hover { border-bottom-color: var(--color-rule-2); color: var(--color-ink); }
+.navbar .nav-toggle { display: none; }
 .navbar .nav-links a.active { border-bottom-color: var(--color-accent); color: var(--color-ink); }
 
 /* Layout */
@@ -351,6 +352,7 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
     display: flex;
     align-items: center;
     gap: var(--space-xs);
+    min-height: 44px;
     padding: var(--space-xs) var(--space-md);
     border: var(--rule-hair) solid transparent;
     border-radius: var(--radius-input);
@@ -626,21 +628,60 @@ input[type="radio"], input[type="checkbox"] { width: 1.1rem; height: 1.1rem; mar
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* Small screens */
+/* Touch: every control gets a 44px target, wherever the width is */
+@media (pointer: coarse) {
+    .navbar .brand, .navbar .nav-links a, .field-row a, .hero a:not(.btn), .link-button { display: inline-flex; align-items: center; min-height: 44px; }
+    .btn-sm, .confirm-btn { min-height: 44px; }
+}
+
+/* Between phone and desktop: the nav row stops fitting (a long username wraps it below 56rem), so it collapses into a labelled Menu button */
+@media (max-width: 56rem) {
+    .navbar .brand { display: inline-flex; align-items: center; min-height: 44px; }
+    .nav-js .navbar .nav-toggle { display: inline-flex; }
+    .nav-js .navbar .nav-links { display: none; flex-basis: 100%; flex-direction: column; gap: 0; border-top: var(--rule-hair) solid var(--color-rule); }
+    .nav-js .navbar.nav-open .nav-links { display: flex; }
+    .nav-js .navbar .nav-links a { display: flex; align-items: center; min-height: 44px; padding: 0; border-bottom: var(--rule-hair) solid var(--color-rule); }
+    .nav-js .navbar .nav-links a:active { background-color: var(--color-paper-2); }
+    .nav-js .navbar .nav-links a.active { padding-left: var(--space-sm); box-shadow: inset 3px 0 0 var(--color-accent); color: var(--color-ink); font-weight: 600; }
+}
+
+/* The six result columns stop fitting below 52rem, so each row becomes a card */
+@media (max-width: 52rem) {
+    .results-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .results-table, .results-table tbody, .results-table tr { display: block; }
+    .results-table tr { padding: var(--space-sm) 0; border-bottom: var(--rule-hair) solid var(--color-rule); }
+    .results-table td { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-3xs) 0; border: none; text-align: left; }
+    .results-table td::before { content: attr(data-label); color: var(--color-muted); font-family: var(--font-display); font-size: var(--text-sm); font-weight: 500; }
+    .results-table .num { text-align: left; }
+}
+
+/* Phones: a smaller register for space and size, columns stack, tables become cards */
 @media (max-width: 40rem) {
-    .hero { padding: var(--space-xl) var(--space-md); }
-    .process li { grid-template-columns: 2rem minmax(0, 1fr); }
+    .navbar { gap: var(--space-xs) var(--space-md); }
+    .navbar .brand { font-size: var(--text-md); }
+    .main-container { padding-top: var(--space-lg); padding-bottom: var(--space-xl); }
+    .page-header { margin-bottom: var(--space-md); }
+    .login-card { margin: var(--space-md) auto; padding: var(--space-lg) var(--space-md); }
+    .hero { margin-bottom: var(--space-lg); padding: var(--space-xl) var(--space-md); }
+    .process li { grid-template-columns: 2rem minmax(0, 1fr); padding: var(--space-md) 0; }
     .process p { grid-column: 2; }
     .field-grid { grid-template-columns: minmax(0, 1fr); }
+    .form-actions { flex-direction: column; }
+    .form-actions .btn, #uploadForm .btn { width: 100%; }
+    .btn-lg { padding: 0 var(--space-lg); font-size: var(--text-md); }
+    .btn-sm, .confirm-btn { min-height: 44px; }
+    .link-button, .field-row a, .hero a:not(.btn) { display: inline-flex; align-items: center; min-height: 44px; }
     .verdict { grid-template-columns: minmax(0, 1fr); align-items: start; }
+    .report-sheet > h2 { margin-top: var(--space-lg); }
+    .q-card { padding: var(--space-md) 0; }
     .q-head { flex-direction: column; gap: var(--space-2xs); }
     .q-fields { grid-template-columns: minmax(0, 1fr); gap: 0; }
     .q-fields dd { margin-bottom: var(--space-xs); }
     .session-bar { flex-direction: column; align-items: flex-start; }
-    .controls-bar .btn-group { width: 100%; margin-left: 0; }
-    .controls-bar .btn-group .btn { flex: 1; }
+    .mode-options { gap: var(--space-xs); }
+    .controls-bar .btn-group { width: 100%; flex-direction: column; margin-left: 0; }
     .search-box, .admin-search-box { flex-direction: column; }
-    .report-item-row { flex-wrap: wrap; }
+    .report-item-row { flex-wrap: wrap; gap: var(--space-xs); }
 }
 
 @media (prefers-reduced-motion: reduce) {
