@@ -22,7 +22,7 @@ Applicants can make their own accounts to take the interview and check their res
 **Step 3: Interactive interview**  
   The conversational engine for the live session. It asks the questions one at a time, handles follow-ups and clarifications in real time, keeps session state, and outputs a full transcript of the candidate's responses.
 
-<img width="1064" height="867" alt="image" src="https://github.com/user-attachments/assets/8a049987-4848-4ece-8493-a2734dfaafc0" />
+<img width="1078" height="927" alt="image" src="https://github.com/user-attachments/assets/aa4db5b8-f336-4b69-b672-b28fe4a728e1" />
 
 
 **Step 4: Evaluation and report generation**  
@@ -47,6 +47,8 @@ Applicants can make their own accounts to take the interview and check their res
   The checker page shows the reports for an interviewee's session, including a score and comments on the answers.
 
 <img width="1153" height="654" alt="image" src="https://github.com/user-attachments/assets/c97b4e51-da57-4a5e-9f27-84a7dae3b65c" />
+
+<img width="1123" height="700" alt="image" src="https://github.com/user-attachments/assets/badb5972-3c69-4e77-b335-2beed25012d7" />
 
 <img width="1050" height="587" alt="image" src="https://github.com/user-attachments/assets/1ee5c863-ba26-4ae8-9864-26e8e3fdd156" />
 
