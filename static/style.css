@@ -43,8 +43,9 @@ label {
     align-items: center;
     justify-content: space-between;
     gap: var(--space-xs) var(--space-lg);
-    max-width: var(--container);
-    margin: 0 auto;
+    width: 100%;
+    max-width: none;
+    margin: 0;
     padding: var(--space-md) var(--gutter);
     border-bottom: var(--rule-hair) solid var(--color-rule);
 }
