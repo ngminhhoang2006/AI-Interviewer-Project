@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
             display.innerText = input.files[0].name;
             display.classList.add("file-selected");
         } else {
-            display.innerText = "Click or drag a PDF résumé here";
+            display.innerText = t("setup.drop");
             display.classList.remove("file-selected");
         }
     }
@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const formData = new FormData();
         formData.append("cv_file", document.getElementById("cv_file").files[0]);
 
-        document.getElementById("status").innerText = "Parsing CV PDF...";
+        document.getElementById("status").innerText = t("js.parsing");
 
         try {
             const response = await fetch("/upload_cv", { method: "POST", body: formData });
@@ -33,15 +33,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("step-questions").classList.remove("hidden");
                 document.getElementById("status").innerText =
                     data.text_extracted === false
-                        ? "No text could be read from this PDF (it may be a scanned image), so the questions will only use the position. Please type your name below."
+                        ? t("js.cv_no_text")
                         : data.name_detected === false
-                            ? "CV parsed, but the name could not be detected. Please type it below."
-                            : "CV parsed successfully!";
+                            ? t("js.cv_no_name")
+                            : t("js.cv_ok");
             } else {
-                document.getElementById("status").innerText = "Error: " + (data.error || "Failed to upload CV");
+                document.getElementById("status").innerText = t("js.err", { message: data.error || t("js.upload_failed") });
             }
         } catch (err) {
-            document.getElementById("status").innerText = "Server error uploading CV.";
+            document.getElementById("status").innerText = t("js.upload_server");
         }
     };
 
@@ -51,12 +51,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const jobPosition = jobInput.value.replace(/\s+/g, " ").trim();
 
         if (!jobPosition) {
-            document.getElementById("status").innerText = "Please enter the position you're applying for.";
+            document.getElementById("status").innerText = t("js.need_position");
             jobInput.focus();
             return;
         }
 
-        document.getElementById("status").innerText = "Generating questions via AI (this may take a few moments)...";
+        document.getElementById("status").innerText = t("js.generating");
 
         try {
             const response = await fetch("/generate_questions", {
@@ -69,10 +69,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (response.ok) {
                 window.location.href = data.redirect;
             } else {
-                document.getElementById("status").innerText = "Error: " + (data.error || ("Failed to generate questions (HTTP " + response.status + ")"));
+                document.getElementById("status").innerText = t("js.err", { message: data.error || t("js.gen_failed", { status: response.status }) });
             }
         } catch (err) {
-            document.getElementById("status").innerText = "Server error generating questions.";
+            document.getElementById("status").innerText = t("js.gen_server");
         }
     };
 });

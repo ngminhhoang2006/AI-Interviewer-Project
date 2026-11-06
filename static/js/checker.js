@@ -23,12 +23,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!query) {
             return alertDialog({
-                title: "Candidate name required",
-                message: "Please enter a candidate name to search.",
+                title: t("js.need_name_title"),
+                message: t("js.need_name_msg"),
             }).then(() => searchInput.focus());
         }
 
-        showMessage("Searching disk records...");
+        showMessage(t("js.searching"));
         reportDiv.classList.add("hidden");
 
         try {
@@ -49,21 +49,21 @@ document.addEventListener("DOMContentLoaded", () => {
             data.candidates.forEach(cand => {
                 const card = el("div", "candidate-item");
 
-                const title = el("h4", null, "Candidate folder: ");
+                const title = el("h4", null, t("js.folder") + " ");
                 title.appendChild(el("strong", null, cand.folder_name));
                 card.appendChild(title);
 
                 card.appendChild(el("p", null,
-                    `CV score: ${cand.cv_score}. Interview score: ${cand.interview_score}.`));
+                    t("js.scores", { cv: cand.cv_score, iv: cand.interview_score })));
 
                 if (cand.reports.length === 0) {
-                    card.appendChild(el("p", "empty-msg", "No report file (.md) found."));
+                    card.appendChild(el("p", "empty-msg", t("js.no_report")));
                 } else {
                     cand.reports.forEach(reportName => {
                         const row = el("div", "report-item-row");
                         row.appendChild(el("span", "file-name", reportName));
 
-                        const viewBtn = el("button", "btn btn-sm", "View");
+                        const viewBtn = el("button", "btn btn-sm", t("js.view"));
                         viewBtn.type = "button";
                         // Values are captured in a closure - they are never parsed as code or HTML.
                         viewBtn.addEventListener("click", () => viewReport(cand.folder_path, reportName));
@@ -75,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 resultsDiv.appendChild(card);
             });
         } catch (err) {
-            showMessage("Failed to retrieve search results.");
+            showMessage(t("js.search_failed"));
         }
     }
 
@@ -87,10 +87,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         const data = await res.json();
         if (data.error) {
-            return alertDialog({ title: "Couldn't open the report", message: String(data.error) });
+            return alertDialog({ title: t("js.open_failed"), message: String(data.error) });
         }
 
-        document.getElementById("reportTitle").textContent = `Report: ${data.candidate}`;
+        document.getElementById("reportTitle").textContent = t("chk.report_h") + ": " + data.candidate;
         // content_html is Markdown rendered from LLM output; the server sanitizes it with nh3
         // (see check_app.get_report) and the CSP blocks inline script as a second layer.
         document.getElementById("reportContent").innerHTML = data.content_html;

@@ -8,10 +8,9 @@
 (function () {
     "use strict";
 
-    // ------------------------------------------------------------------ dialog
     function confirmDialog(options) {
         const o = Object.assign(
-            { title: "Are you sure?", message: "", confirmText: "Confirm", cancelText: "Cancel", danger: false, hideCancel: false },
+            { title: t("js.are_you_sure"), message: "", confirmText: t("js.confirm"), cancelText: t("js.cancel"), danger: false, hideCancel: false },
             options || {}
         );
 
@@ -93,10 +92,9 @@
     window.alertDialog = function (options) {
         // Don't stack on top of a dialog that is already open (e.g. repeated microphone errors)
         if (document.querySelector(".confirm-overlay")) return Promise.resolve(false);
-        return confirmDialog(Object.assign({ confirmText: "OK" }, options || {}, { hideCancel: true }));
+        return confirmDialog(Object.assign({ confirmText: t("js.ok") }, options || {}, { hideCancel: true }));
     };
 
-    // --------------------------------------------------------------- nav bar
     let dialogOpen = false;
 
     document.addEventListener("click", async function (event) {
@@ -120,19 +118,18 @@
         let config;
         if (inInterview) {
             config = {
-                title: isLogout ? "Leave the interview and log out?" : "Leave the interview?",
-                message: "Your interview is still in progress. If you leave now, your answers so far " +
-                         "will not be saved and the interview cannot be resumed.",
-                confirmText: isLogout ? "Leave & log out" : "Leave interview",
-                cancelText: "Stay in interview",
+                title: isLogout ? t("js.leave_logout_title") : t("js.leave_title"),
+                message: t("js.leave_msg"),
+                confirmText: isLogout ? t("js.leave_logout_ok") : t("js.leave_ok"),
+                cancelText: t("js.stay"),
                 danger: true,
             };
         } else {
             config = {
-                title: "Log out?",
-                message: "You will need to sign in again to continue.",
-                confirmText: "Log out",
-                cancelText: "Cancel",
+                title: t("js.logout_title"),
+                message: t("js.logout_msg"),
+                confirmText: t("js.logout_ok"),
+                cancelText: t("js.cancel"),
                 danger: false,
             };
         }
@@ -151,11 +148,8 @@
             }
         }
     });
-    // ------------------------------------------------- browser back / refresh / close tab
-    // Shows the browser's own "Leave site?" warning while an interview is in progress.
-    // (Browsers don't allow a custom message here.) It does not fire after the interview has
-    // finished, or after the person confirmed leaving through the dialog above, because both
-    // set window.interviewInProgress = false before navigating.
+    // The browser's own "Leave site?" warning (it allows no custom message) while an interview is in progress.
+    // Both a finished interview and a confirmed leave set window.interviewInProgress = false first.
     window.addEventListener("beforeunload", function (event) {
         if (window.interviewInProgress === true) {
             event.preventDefault();

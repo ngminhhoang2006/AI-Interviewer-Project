@@ -1,8 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Config injected by the server via the DOM (see interview.html) —
-    // questions is JSON parsed out of a <script type="application/json"> block
-    // (safe against JSON containing "</script>", quotes, etc.); candidate/language
-    // come from data-* attributes since they're plain strings.
+    // Config comes from the DOM (see interview.html): questions as JSON in a <script type="application/json">
+    // block, which is safe against "</script>" in the text; candidate and language from data-* attributes.
     const configEl = document.getElementById("interviewConfig");
     const questions = JSON.parse(document.getElementById("questionsData").textContent || "[]");
     const candidate = configEl.dataset.candidate || "";
@@ -88,9 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!synth) return;
 
         const utterance = new SpeechSynthesisUtterance(text);
-        // The server sends a BCP-47 tag for the chosen language (data-lang-tag).
-        // `language` itself arrives lower-cased from the URL ("vietnamese"), so the
-        // old capitalised map never matched and every language read as en-US.
+        // Prefer the server's BCP-47 tag (data-lang-tag); `language` arrives lower-cased from the URL.
         const fallbackMap = {
             'english': 'en-US', 'vietnamese': 'vi-VN', 'spanish': 'es-ES', 'french': 'fr-FR',
             'german': 'de-DE', 'italian': 'it-IT', 'portuguese': 'pt-BR', 'russian': 'ru-RU',
@@ -132,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             mediaRecorder.onstop = async () => {
-                recordingStatus.innerText = "Transcribing audio...";
+                recordingStatus.innerText = t("js.transcribing");
                 const blobType = mediaRecorder.mimeType || 'audio/webm';
                 const audioBlob = new Blob(audioChunks, { type: blobType });
                 await sendAudioToWhisper(audioBlob);
@@ -142,14 +138,13 @@ document.addEventListener("DOMContentLoaded", () => {
             mediaRecorder.start();
             isRecording = true;
             recordBtn.classList.add("recording");
-            recordBtn.innerText = "Stop recording";
-            recordingStatus.innerText = "Listening...";
+            recordBtn.innerText = t("js.stop_rec");
+            recordingStatus.innerText = t("js.listening");
         } catch (err) {
             console.error("Microphone access error:", err);
             alertDialog({
-                title: "Microphone unavailable",
-                message: "Microphone access is required for voice input. Please allow microphone " +
-                         "access in your browser, or switch to Text Mode.",
+                title: t("js.mic_unavail_title"),
+                message: t("js.mic_unavail_msg"),
             });
         }
     }
@@ -162,7 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const recordBtn = document.getElementById("btnRecord");
             recordBtn.classList.remove("recording");
-            recordBtn.innerText = "Start recording";
+            recordBtn.innerText = t("int.start_rec");
         }
     }
 
@@ -208,8 +203,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         currentQuestionObj = questions[currentQIndex];
-        document.getElementById("qBadge").innerText = `Q${answers.length + 1} (${currentQuestionObj.category || 'introduction'})`;
-        document.getElementById("diffBadge").innerText = `Difficulty: ${currentQuestionObj.difficulty || 'general'}`;
+        document.getElementById("qBadge").innerText = t("js.q_badge", { n: answers.length + 1, category: currentQuestionObj.category || t("js.cat_default") });
+        document.getElementById("diffBadge").innerText = t("js.diff", { difficulty: currentQuestionObj.difficulty || t("js.diff_default") });
         document.getElementById("questionText").innerText = currentQuestionObj.question;
         document.getElementById("answerInput").value = "";
         document.getElementById("status").innerText = "";
@@ -235,24 +230,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const answer = document.getElementById("answerInput").value.trim();
         if (!answer) {
             await alertDialog({
-                title: "Answer required",
-                message: "Please type an answer or record your voice response before submitting.",
+                title: t("js.ans_req_title"),
+                message: t("js.ans_req_msg"),
             });
             document.getElementById("answerInput").focus();
             return;
         }
 
         const isConfirmed = await confirmDialog({
-            title: "Submit this answer?",
-            message: "Once submitted, you can't go back and change this answer.",
-            confirmText: "Submit answer",
-            cancelText: "Keep editing",
+            title: t("js.submit_title"),
+            message: t("js.submit_msg"),
+            confirmText: t("int.submit"),
+            cancelText: t("js.keep_editing"),
         });
         if (!isConfirmed) {
             return;
         }
 
-        document.getElementById("status").innerText = "Processing answer...";
+        document.getElementById("status").innerText = t("js.processing");
 
         if (!isFollowUp) {
             const record = {
@@ -266,7 +261,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             answers.push(record);
 
-            document.getElementById("status").innerText = "Checking if follow-up is needed...";
+            document.getElementById("status").innerText = t("js.checking");
             const res = await fetch("/api/follow_up", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -282,7 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (data.follow_up && answers.length < 10) {
                 isFollowUp = true;
-                document.getElementById("qBadge").innerText = `Q${answers.length + 1} (Follow-Up)`;
+                document.getElementById("qBadge").innerText = t("js.q_badge", { n: answers.length + 1, category: t("js.followup") });
                 document.getElementById("questionText").innerText = data.follow_up;
                 document.getElementById("answerInput").value = "";
                 document.getElementById("status").innerText = "";
@@ -314,7 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
         stopAllSpeech();
         if (isRecording) stopRecording();
 
-        document.getElementById("status").innerText = "Saving answers and finalizing interview...";
+        document.getElementById("status").innerText = t("js.saving");
         const res = await fetch("/api/save_answers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

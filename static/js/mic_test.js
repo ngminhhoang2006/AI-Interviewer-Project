@@ -23,12 +23,12 @@ document.addEventListener("DOMContentLoaded", () => {
             audioInputs.forEach((device, index) => {
                 const option = document.createElement('option');
                 option.value = device.deviceId;
-                option.text = device.label || `Microphone ${index + 1}`;
+                option.text = device.label || t("js.mic_n", { n: index + 1 });
                 micSelect.appendChild(option);
             });
         } catch (err) {
             console.error("Device Enumeration Error:", err);
-            micSelect.innerHTML = '<option value="">Default Microphone</option>';
+            micSelect.innerHTML = '<option value="">' + t("js.mic_default") + "</option>";
         }
     }
 
@@ -45,7 +45,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const average = values / array.length;
-        const pct = Math.min(100, Math.round((average / 128) * 100));
+        // Speech averages about 10-40 on this scale; a square-root curve lets normal talking reach the amber and red end.
+        const pct = Math.min(100, Math.round(Math.sqrt(average / 64) * 100));
         meterFill.style.width = pct + '%';
 
         animationFrameId = requestAnimationFrame(updateMeter);
@@ -63,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             activeStream = await navigator.mediaDevices.getUserMedia(constraints);
-            micStatus.innerText = "Microphone active. Speak to test volume.";
+            micStatus.innerText = t("js.mic_active");
             micStatus.classList.remove("is-error");
             micStatus.classList.add("is-ok");
             btnStartMic.disabled = true;
@@ -79,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateMeter();
         } catch (err) {
             console.error("Microphone Access Error:", err);
-            micStatus.innerText = "Error: Microphone access denied or unavailable.";
+            micStatus.innerText = t("js.mic_denied");
             micStatus.classList.remove("is-ok");
             micStatus.classList.add("is-error");
         }
@@ -87,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnRecordTest.onclick = async () => {
         btnRecordTest.disabled = true;
-        btnRecordTest.innerText = "Recording (3s)...";
+        btnRecordTest.innerText = t("js.recording3");
 
         try {
             const selectedDeviceId = micSelect.value;
@@ -103,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
             mediaRecorder.onstop = () => {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
                 audioPlayback.src = URL.createObjectURL(blob);
-                btnRecordTest.innerText = "Record 3s sample";
+                btnRecordTest.innerText = t("mic.record");
                 btnRecordTest.disabled = false;
             };
 
@@ -114,11 +115,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }, 3000);
         } catch (err) {
             alertDialog({
-                title: "Couldn't record audio",
-                message: "Failed to record a sample. Check that a microphone is connected and that " +
-                         "this site is allowed to use it, then try again.",
+                title: t("js.rec_err_title"),
+                message: t("js.rec_err_msg"),
             });
-            btnRecordTest.innerText = "Record 3s sample";
+            btnRecordTest.innerText = t("mic.record");
             btnRecordTest.disabled = false;
         }
     };
