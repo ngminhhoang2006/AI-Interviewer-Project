@@ -5,19 +5,16 @@ Applicants can make their own accounts to take the interview and check their res
 
 <img width="990" height="903" alt="image" src="https://github.com/user-attachments/assets/460d4a94-0827-4fd1-95d5-a9fcb136aec4" />
 
-
 ## The Full Interview Process
 **Step 1: Resume parsing and data extraction**  
   Extracts raw text from PDF resumes and uses an LLM to parse it into clean, schema-compliant JSON. The output covers technical skills, work history, education, and notable projects.
 
-<img width="1132" height="575" alt="image" src="https://github.com/user-attachments/assets/937379e0-0b2f-4d8c-b39e-7563651aacf2" />
-
+<img width="739" height="493" alt="image" src="https://github.com/user-attachments/assets/c5e300b3-2ec3-4a6d-89a5-0086cea0c6bc" />
 
 **Step 2: Adaptive question synthesis**  
   Reads the JSON profile to judge the candidate's seniority and tech stack, then generates technical, behavioral and situational questions that probe their specific experience and any gaps. The website supports multiple languages.
 
-<img width="1097" height="869" alt="image" src="https://github.com/user-attachments/assets/cac6f254-3843-4893-89e6-41e3a82004c2" />
-
+<img width="754" height="751" alt="image" src="https://github.com/user-attachments/assets/6ebfd3ef-bf93-4a37-9887-adca142df4f5" />
 
 **Step 3: Interactive interview**  
   The conversational engine for the live session. It asks the questions one at a time, handles follow-ups and clarifications in real time, keeps session state, and outputs a full transcript of the candidate's responses.
