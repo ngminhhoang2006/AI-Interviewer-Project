@@ -21,6 +21,8 @@ from pathlib import Path
 from flask import flash, jsonify, redirect, request, url_for
 from flask_wtf.csrf import CSRFError, CSRFProtect
 
+from i18n import t
+
 csrf = CSRFProtect()
 
 # Everything loads from this site. 'unsafe-inline' is for styles only, because the templates use style attributes.
@@ -83,7 +85,7 @@ def init_security(app, project_root: Path):
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(error):
-        message = "Your session expired or the request could not be verified. Please reload the page and try again."
+        message = t("f.csrf")
         if request.is_json or request.path.startswith("/api/") or request.path in ("/upload_cv", "/generate_questions"):
             return jsonify({"error": message}), 400
         flash(message, "danger")

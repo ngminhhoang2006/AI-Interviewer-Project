@@ -10,6 +10,7 @@ from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from models import db, User, InterviewResult
 from security import init_security
+from i18n import init_i18n, t
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -31,6 +32,7 @@ db_dir.mkdir(parents=True, exist_ok=True)
 
 # SECRET_KEY, secure cookies, CSRF protection and security headers (see apps/security.py)
 init_security(app, PROJECT_ROOT)
+init_i18n(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_dir / 'interview_portal.db'}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -77,15 +79,10 @@ def send_verification_email(recipient_email, code):
     """Sends a 6-digit OTP code to the recipient's email address."""
     try:
         msg = Message(
-            subject="Your AI Interview Portal Verification Code",
+            subject=t("m.verify_subject"),
             recipients=[recipient_email]
         )
-        msg.body = (
-            f"Hello,\n\n"
-            f"Your 6-digit email verification code is: {code}\n\n"
-            f"This code will expire in 10 minutes.\n\n"
-            f"If you did not request this, please ignore this email."
-        )
+        msg.body = t("m.verify_body", code=code)
         mail.send(msg)
         return True
     except Exception as e:
@@ -97,23 +94,11 @@ def send_password_reset_email(recipient_email, reset_url):
     """Sends a password reset hyperlink to the user's email address."""
     try:
         msg = Message(
-            subject="Password Reset Request - AI Interview Portal",
+            subject=t("m.reset_subject"),
             recipients=[recipient_email]
         )
-        msg.body = (
-            f"Hello,\n\n"
-            f"We received a request to reset your password. Please click the link below to set a new password:\n\n"
-            f"{reset_url}\n\n"
-            f"This link will expire in 1 hour.\n\n"
-            f"If you did not request a password reset, please ignore this email."
-        )
-        msg.html = (
-            f"<p>Hello,</p>"
-            f"<p>We received a request to reset your password. Click the link below to set a new password:</p>"
-            f"<p><a href='{reset_url}' style='color: #0d9488; font-weight: bold;'>Reset Your Password</a></p>"
-            f"<p>This link will expire in 1 hour.</p>"
-            f"<p>If you did not request a password reset, please ignore this email.</p>"
-        )
+        msg.body = t("m.reset_body", url=reset_url)
+        msg.html = t("m.reset_html", url=reset_url)
         mail.send(msg)
         return True
     except Exception as e:
@@ -132,10 +117,10 @@ def login():
 
         if user and user.check_password(password):
             login_user(user)
-            flash('Login successful!', 'success')
+            flash(t('f.login_ok'), 'success')
             return redirect(url_for('results_checker'))
         else:
-            flash('Invalid username or password.', 'danger')
+            flash(t('f.login_bad'), 'danger')
 
     return render_template('login.html')
 
@@ -148,19 +133,19 @@ def signup():
         confirm_password = request.form.get('confirm_password')
 
         if not username or not email or not password or not confirm_password:
-            flash('Please fill out all fields.', 'danger')
+            flash(t('f.fill_all'), 'danger')
             return render_template('signup.html')
 
         if password != confirm_password:
-            flash('Passwords do not match.', 'danger')
+            flash(t('f.pw_mismatch'), 'danger')
             return render_template('signup.html')
 
         if User.query.filter_by(username=username).first():
-            flash('Username is already taken.', 'danger')
+            flash(t('f.user_taken'), 'danger')
             return render_template('signup.html')
 
         if User.query.filter_by(email=email).first():
-            flash('An account with this email already exists.', 'danger')
+            flash(t('f.email_taken'), 'danger')
             return render_template('signup.html')
 
         verification_code = f"{random.randint(100000, 999999)}"
@@ -174,9 +159,9 @@ def signup():
 
         sent = send_verification_email(email, verification_code)
         if sent:
-            flash(f'Verification code sent to {email}!', 'success')
+            flash(t('f.code_sent', email=email), 'success')
         else:
-            flash(f'Verification code could not be sent. Please check SMTP settings.', 'danger')
+            flash(t('f.code_fail'), 'danger')
 
         return redirect(url_for('verify_email'))
 
@@ -186,7 +171,7 @@ def signup():
 def verify_email():
     pending_user = session.get('pending_user')
     if not pending_user:
-        flash('No pending registration found. Please sign up again.', 'warning')
+        flash(t('f.no_pending'), 'warning')
         return redirect(url_for('signup'))
 
     if request.method == 'POST':
@@ -194,7 +179,7 @@ def verify_email():
 
         if time.time() > pending_user.get('expires_at', 0):
             session.pop('pending_user', None)
-            flash('Verification code expired. Please sign up again.', 'danger')
+            flash(t('f.code_expired'), 'danger')
             return redirect(url_for('signup'))
 
         if code_input == pending_user.get('code'):
@@ -208,10 +193,10 @@ def verify_email():
             db.session.commit()
 
             session.pop('pending_user', None)
-            flash('Email verified! Account created successfully. Please log in.', 'success')
+            flash(t('f.verified'), 'success')
             return redirect(url_for('login'))
         else:
-            flash('Invalid verification code. Please try again.', 'danger')
+            flash(t('f.code_bad'), 'danger')
 
     return render_template('verify_email.html', email=pending_user.get('email'))
 
@@ -219,7 +204,7 @@ def verify_email():
 def resend_code():
     pending_user = session.get('pending_user')
     if not pending_user:
-        flash('No active registration session. Please sign up again.', 'warning')
+        flash(t('f.no_session'), 'warning')
         return redirect(url_for('signup'))
 
     new_code = f"{random.randint(100000, 999999)}"
@@ -229,9 +214,9 @@ def resend_code():
 
     sent = send_verification_email(pending_user['email'], new_code)
     if sent:
-        flash(f'A new verification code has been sent to {pending_user["email"]}!', 'info')
+        flash(t('f.code_resent', email=pending_user["email"]), 'info')
     else:
-        flash('Failed to resend code. Please verify server SMTP configuration.', 'danger')
+        flash(t('f.resend_fail'), 'danger')
 
     return redirect(url_for('verify_email'))
 
@@ -247,12 +232,12 @@ def forgot_password():
             sent = send_password_reset_email(user.email, reset_url)
             
             if sent:
-                flash(f'A password reset link has been sent to {email}.', 'info')
+                flash(t('f.reset_sent', email=email), 'info')
             else:
-                flash('Could not send reset email. Please try again later or check SMTP settings.', 'danger')
+                flash(t('f.reset_fail'), 'danger')
         else:
             # Generic message so account existence isn't revealed.
-            flash('If an account exists with that email, a password reset link has been sent.', 'info')
+            flash(t('f.reset_generic'), 'info')
 
         return redirect(url_for('login'))
 
@@ -263,7 +248,7 @@ def reset_password(token):
     try:
         email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
     except Exception:
-        flash('The password reset link is invalid or has expired.', 'danger')
+        flash(t('f.reset_invalid'), 'danger')
         return redirect(url_for('forgot_password'))
 
     user = User.query.filter_by(email=email).first_or_404()
@@ -273,13 +258,13 @@ def reset_password(token):
         confirm_password = request.form.get('confirm_password')
 
         if password != confirm_password:
-            flash('Passwords do not match.', 'danger')
+            flash(t('f.pw_mismatch'), 'danger')
             return render_template('reset_password.html', token=token)
 
         user.set_password(password)
         db.session.commit()
 
-        flash('Your password has been updated! You can now log in.', 'success')
+        flash(t('f.pw_updated'), 'success')
         return redirect(url_for('login'))
 
     return render_template('reset_password.html', token=token)
@@ -290,7 +275,7 @@ def logout():
     # A plain GET (e.g. a forged <img src="/logout">) just goes back to the home page.
     if request.method == 'POST' and current_user.is_authenticated:
         logout_user()
-        flash('You have been logged out.', 'info')
+        flash(t('f.logged_out'), 'info')
         return redirect(url_for('login'))
     return redirect(url_for('index'))
 
