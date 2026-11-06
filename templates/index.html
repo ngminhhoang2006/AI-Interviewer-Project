@@ -1,42 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}AI Interview Portal - Setup{% endblock %}
+{% block title %}{{ t('setup.title') }}{% endblock %}
 
 {% block content %}
+{# Change this number if the setup flow gets more steps #}
+{% set setup_steps = 2 %}
 <div class="page-header">
-    <h1>Candidate interview setup</h1>
-    <p class="subtitle">Upload a candidate resume to generate technical interview questions.</p>
+    <h1>{{ t('setup.h1') }}</h1>
+    <p class="subtitle">{{ t('setup.sub') }}</p>
 </div>
 
 <div class="card setup-card">
     <div id="step-upload">
-        <h3>Step 1 of 2: Upload the candidate's CV</h3>
+        <h3>{{ t('setup.step1', n=1, total=setup_steps) }}</h3>
         <form id="uploadForm" class="form-container">
             <div class="file-upload-wrapper">
                 <label for="cv_file" class="file-dropzone">
-                    <span id="fileNameDisplay" class="file-text">Click or drag a PDF résumé here</span>
-                    <span class="file-hint">PDF only, up to 16 MB</span>
+                    <span id="fileNameDisplay" class="file-text">{{ t('setup.drop') }}</span>
+                    <span class="file-hint">{{ t('setup.drop_hint') }}</span>
                     <input type="file" id="cv_file" name="cv_file" accept=".pdf" required>
                 </label>
             </div>
-            <button type="submit" class="btn btn-lg">Parse CV</button>
+            <button type="submit" class="btn btn-lg">{{ t('setup.parse') }}</button>
         </form>
     </div>
 
     <div id="step-questions" class="hidden">
-        <h3>Step 2 of 2: Position and language</h3>
+        <h3>{{ t('setup.step2', n=2, total=setup_steps) }}</h3>
         <div class="form-group">
-            <label for="candidateName">Candidate name</label>
+            <label for="candidateName">{{ t('setup.name_label') }}</label>
             <input type="text" id="candidateName" maxlength="100"
-                   autocomplete="off" placeholder="Candidate's full name">
+                   autocomplete="off" placeholder="{{ t('setup.name_ph') }}">
         </div>
 
         <div class="field-grid">
         <div class="form-group">
-            <label for="jobPosition">Position you're applying for</label>
+            <label for="jobPosition">{{ t('setup.pos_label') }}</label>
             <input type="text" id="jobPosition" list="jobPositionSuggestions"
                    maxlength="100" required autocomplete="off"
-                   placeholder="e.g. Software Engineer">
+                   placeholder="{{ t('setup.pos_ph') }}">
             <datalist id="jobPositionSuggestions">
                 <option value="Software Engineer"></option>
                 <option value="AI Researcher"></option>
@@ -53,11 +55,11 @@
                 <option value="Cybersecurity Analyst"></option>
                 <option value="Product Manager"></option>
             </datalist>
-            <small class="field-hint">Questions are tailored to this role. Type any position, or pick a suggestion.</small>
+            <small class="field-hint">{{ t('setup.pos_hint') }}</small>
         </div>
 
         <div class="form-group">
-            <label for="language">Interview language</label>
+            <label for="language">{{ t('setup.lang_label') }}</label>
             <div class="select-wrapper">
                 <select id="language">
                     {# The list comes from SUPPORTED_LANGUAGES in interview_app.py; the fallback keeps the page working without it #}
@@ -89,7 +91,7 @@
         </div>
 
         <div class="form-actions">
-            <button id="btnGenerate" class="btn btn-lg">Generate questions and start interview</button>
+            <button id="btnGenerate" class="btn btn-lg">{{ t('setup.generate') }}</button>
         </div>
     </div>
 
