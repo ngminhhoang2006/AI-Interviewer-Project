@@ -100,6 +100,35 @@ MULTILINGUAL_SPECS = [
          present=["model.onnx", "tokens.txt"], label="tts_thai (MMS Thai)"),
 ]
 
+# DPDFNet speech denoiser: one plain .onnx file (not an archive), kept at sherpa_models/dpdfnet2.onnx
+DPDFNET_FILE = "dpdfnet2.onnx"
+DPDFNET_URL = f"{BASE_URL}/speech-enhancement-models/{DPDFNET_FILE}"
+
+
+def dpdfnet_installed():
+    p = MODELS_DIR / DPDFNET_FILE
+    return p.is_file() and p.stat().st_size > 0
+
+
+def install_dpdfnet(force=False):
+    if dpdfnet_installed() and not force:
+        log("[skip] dpdfnet2 (speech denoiser): already installed")
+        return True
+    log("[get ] dpdfnet2 (speech denoiser)")
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    dest = MODELS_DIR / DPDFNET_FILE
+    part = dest.with_name(DPDFNET_FILE + ".part")
+    try:
+        if force and part.exists():
+            part.unlink()
+        download(DPDFNET_URL, part, DPDFNET_FILE)
+        part.replace(dest)
+        log("[ ok ] dpdfnet2 (speech denoiser)")
+        return True
+    except Exception as e:  # noqa: BLE001
+        log(f"[FAIL] dpdfnet2 (speech denoiser): {e}")
+        return False
+
 
 def core_specs(whisper_size):
     return [
@@ -264,14 +293,22 @@ def main():
     if args.only is not None:
         specs = [s for s in specs if s.folder in args.only]
 
+    want_dpdfnet = args.only is None or "dpdfnet2" in args.only
+
     log(f"Speech models folder: {MODELS_DIR}")
     if args.list:
+        if want_dpdfnet:
+            log(f"  {'installed' if dpdfnet_installed() else 'missing  '}  dpdfnet2 (speech denoiser)  <- {DPDFNET_URL}")
         for s in specs:
             log(f"  {'installed' if is_installed(s) else 'missing  '}  {s.label}  <- {s.url}")
         return 0
 
     results = [install(s, force=args.force) for s in specs]
-    failed = [s.folder for s, ok in zip(specs, results) if not ok]
+    names = [s.folder for s in specs]
+    if want_dpdfnet:
+        results.append(install_dpdfnet(force=args.force))
+        names.append("dpdfnet2")
+    failed = [n for n, ok in zip(names, results) if not ok]
     if failed:
         log(f"\nSome models could not be installed: {', '.join(failed)}")
         log("Check your internet connection and run this script again; finished models are kept.")
