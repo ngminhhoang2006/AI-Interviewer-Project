@@ -82,8 +82,19 @@
                         {'value': 'Japanese', 'label': 'Japanese (日本語)'},
                         {'value': 'Korean', 'label': 'Korean (한국어)'},
                         {'value': 'Thai', 'label': 'Thai (ไทย)'}] %}
+                    {# Preselect the interview language that matches the site (UI) language, e.g. ui_lang 'vi' -> Vietnamese (tag 'vi-VN').
+                       Falls back to English when there is no match. #}
+                    {% set ns = namespace(has_match=false) %}
                     {% for lang in langs %}
-                    <option value="{{ lang.value }}"{% if lang.value == 'English' %} selected{% endif %}>{{ lang.label }}</option>
+                        {% if lang.tag is defined and lang.tag.split('-')[0] == ui_lang %}{% set ns.has_match = true %}{% endif %}
+                    {% endfor %}
+                    {% for lang in langs %}
+                    {% if ns.has_match %}
+                        {% set is_default = lang.tag is defined and lang.tag.split('-')[0] == ui_lang %}
+                    {% else %}
+                        {% set is_default = lang.value == 'English' %}
+                    {% endif %}
+                    <option value="{{ lang.value }}"{% if is_default %} selected{% endif %}>{{ lang.label }}</option>
                     {% endfor %}
                 </select>
             </div>
