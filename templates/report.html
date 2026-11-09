@@ -1,58 +1,60 @@
 {% extends "base.html" %}
 
-{% block title %}Interview Evaluation Report{% endblock %}
+{% block title %}{{ t('rep.title') }}{% endblock %}
 
 {% block content %}
 {% macro out_of_ten(value) -%}
-    {%- if value is not none -%}{{ value }}<span class="of">/10</span>{%- else -%}<span class="na">N/A</span>{%- endif -%}
+    {%- if value is not none -%}{{ value }}<span class="of">/10</span>{%- else -%}<span class="na">{{ t('rep.na') }}</span>{%- endif -%}
 {%- endmacro %}
 {% set rec = report.overall.recommendation %}
 {% set rec_class = 'hire' if rec in ('Hire', 'Strong Hire') else ('nohire' if rec == 'No Hire' else '') %}
+{# The grader writes the recommendation in English; known values are shown translated #}
+{% set rec_keys = {'Strong Hire': 'rec.strong_hire', 'Hire': 'rec.hire', 'Borderline': 'rec.borderline', 'No Hire': 'rec.no_hire'} %}
 <article class="report-sheet">
-    <h1>Interview evaluation report</h1>
-    <p class="report-candidate">{{ report.candidate }}</p>
+    <h1>{{ t('rep.h1') }}</h1>
+    <p class="report-candidate" dir="auto">{{ report.candidate }}</p>
 
     <dl class="report-meta">
-        <div><dt>Job title</dt><dd>{{ report.job_title }}</dd></div>
-        <div><dt>Model</dt><dd>{{ report.model_used }}</dd></div>
+        <div><dt>{{ t('rep.job') }}</dt><dd>{{ report.job_title }}</dd></div>
+        <div><dt>{{ t('rep.model') }}</dt><dd>{{ report.model_used }}</dd></div>
     </dl>
 
     {% if save_status in ('saved', 'saved_via_fallback') %}
-    <p class="save-note save-ok">These scores have been saved to the interview records.</p>
+    <p class="save-note save-ok">{{ t('rep.saved') }}</p>
     {% elif save_status == 'failed' %}
-    <p class="save-note save-warn">These scores could not be saved to the interview records. They are kept in the report files; an administrator can run <code>python backfill_scores.py</code> to add them.</p>
+    <p class="save-note save-warn">{{ th('rep.failed') }}</p>
     {% elif save_status == 'not_logged_in' %}
-    <p class="save-note save-warn">You are not logged in, so these scores were not added to the interview records. <a href="{{ url_for('login') }}">Log in</a> and open this report again to save them.</p>
+    <p class="save-note save-warn">{{ th('rep.not_logged', login_url=url_for('login')) }}</p>
     {% endif %}
 
-    <section class="verdict" aria-label="Verdict">
+    <section class="verdict" aria-label="{{ t('rep.rec') }}">
         <div class="verdict-rec">
-            <p class="verdict-label">Recommendation</p>
-            <p><span class="tag {{ rec_class }}">{{ rec }}</span></p>
+            <p class="verdict-label">{{ t('rep.rec') }}</p>
+            <p><span class="tag {{ rec_class }}">{{ t(rec_keys[rec]) if rec in rec_keys else rec }}</span></p>
         </div>
         <dl class="verdict-scores">
-            <div><dt>Overall score</dt><dd class="figure">{{ out_of_ten(report.overall.overall_score) }}</dd></div>
-            <div><dt>Average answer score</dt><dd class="figure">{{ out_of_ten(report.average_score) }}</dd></div>
+            <div><dt>{{ t('rep.overall') }}</dt><dd class="figure">{{ out_of_ten(report.overall.overall_score) }}</dd></div>
+            <div><dt>{{ t('rep.avg') }}</dt><dd class="figure">{{ out_of_ten(report.average_score) }}</dd></div>
         </dl>
-        <p class="verdict-summary">{{ report.overall.summary }}</p>
+        <p class="verdict-summary" dir="auto">{{ report.overall.summary }}</p>
     </section>
 
-    <h2>Per-question breakdown</h2>
+    <h2>{{ t('rep.breakdown') }}</h2>
     {% for item in report.per_question %}
     <section class="q-card">
         <div class="q-head">
-            <h3>Q{{ item.question_number }}: {{ item.question }}</h3>
+            <h3 dir="auto">Q{{ item.question_number }}: {{ item.question }}</h3>
             <p class="q-score figure">{{ out_of_ten(item.score) }}</p>
         </div>
         <dl class="q-fields">
-            <dt>Answer</dt><dd>{{ item.answer }}</dd>
-            <dt>Strengths</dt><dd>{{ item.strengths }}</dd>
-            <dt>Concerns</dt><dd>{{ item.concerns }}</dd>
-            <dt>Comment</dt><dd>{{ item.comment }}</dd>
+            <dt>{{ t('rep.answer') }}</dt><dd dir="auto">{{ item.answer }}</dd>
+            <dt>{{ t('rep.strengths') }}</dt><dd dir="auto">{{ item.strengths }}</dd>
+            <dt>{{ t('rep.concerns') }}</dt><dd dir="auto">{{ item.concerns }}</dd>
+            <dt>{{ t('rep.comment') }}</dt><dd dir="auto">{{ item.comment }}</dd>
         </dl>
     </section>
     {% endfor %}
 
-    <a href="/" class="btn btn-quiet back-link">Back to home</a>
+    <a href="/" class="btn btn-quiet back-link">{{ t('rep.back') }}</a>
 </article>
 {% endblock %}

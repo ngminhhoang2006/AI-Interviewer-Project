@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Interviewee Report Checker - AI Interview Portal{% endblock %}
+{% block title %}{{ t('chk.title') }}{% endblock %}
 
 {% block content %}
 <div class="checker-col">
 <div class="page-header">
-    <h1>Interviewee report checker</h1>
+    <h1>{{ t('chk.h1') }}</h1>
     <p class="subtitle">
-        Logged in as <strong>{{ current_user.username }}</strong> 
+        {{ th('chk.logged_in', name=current_user.username) }}
         <span class="role-badge">
-            {{ 'Admin' if is_admin else 'Candidate' }}
+            {{ t('chk.role_admin') if is_admin else t('chk.role_candidate') }}
         </span>
     </p>
 </div>
 
 <div class="card">
-    <h2>{{ 'All interview records' if is_admin else 'Your interview records' }}</h2>
+    <h2>{{ t('chk.all') if is_admin else t('chk.yours') }}</h2>
 
     {% if results %}
     <div class="table-scroll">
@@ -23,51 +23,51 @@
         <thead>
             <tr>
                 {% if is_admin %}
-                <th scope="col">User ID</th>
+                <th scope="col">{{ t('chk.th_user') }}</th>
                 {% endif %}
-                <th scope="col">Candidate name</th>
-                <th scope="col">Language</th>
-                <th scope="col" class="num">CV score</th>
-                <th scope="col" class="num">Interview score</th>
-                <th scope="col">Date</th>
+                <th scope="col">{{ t('chk.th_name') }}</th>
+                <th scope="col">{{ t('chk.th_lang') }}</th>
+                <th scope="col" class="num">{{ t('chk.th_cv') }}</th>
+                <th scope="col" class="num">{{ t('chk.th_int') }}</th>
+                <th scope="col">{{ t('chk.th_date') }}</th>
             </tr>
         </thead>
         <tbody>
             {% for r in results %}
             <tr>
                 {% if is_admin %}
-                <td data-label="User ID">{{ r.user_id }}</td>
+                <td data-label="{{ t('chk.th_user') }}">{{ r.user_id }}</td>
                 {% endif %}
-                <td data-label="Candidate"><strong>{{ r.candidate_name }}</strong></td>
-                <td data-label="Language">{{ r.language }}</td>
-                <td data-label="CV score" class="num{{ ' na' if r.cv_score is none }}">{{ r.cv_score if r.cv_score is not none else 'N/A' }}</td>
-                <td data-label="Interview score" class="num{{ ' na' if r.interview_score is none }}">{{ r.interview_score if r.interview_score is not none else 'N/A' }}</td>
-                <td data-label="Date">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td data-label="{{ t('chk.th_name') }}"><strong>{{ r.candidate_name }}</strong></td>
+                <td data-label="{{ t('chk.th_lang') }}">{{ r.language }}</td>
+                <td data-label="{{ t('chk.th_cv') }}" class="num{{ ' na' if r.cv_score is none }}">{{ r.cv_score if r.cv_score is not none else t('rep.na') }}</td>
+                <td data-label="{{ t('chk.th_int') }}" class="num{{ ' na' if r.interview_score is none }}">{{ r.interview_score if r.interview_score is not none else t('rep.na') }}</td>
+                <td data-label="{{ t('chk.th_date') }}">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     </div>
     {% else %}
-    <p class="empty-msg">No interview records yet. <a href="/interview_portal">Set up an interview</a> and its scores will appear here once the report is graded.</p>
+    <p class="empty-msg">{{ th('chk.empty') }}</p>
     {% endif %}
 </div>
 
 {% if is_admin %}
 <div class="card search-card">
-    <h2>Admin file report search</h2>
-    <p class="subtitle">Search generated Markdown (.md) reports on disk.</p>
+    <h2>{{ t('chk.search_h') }}</h2>
+    <p class="subtitle">{{ t('chk.search_sub') }}</p>
     <div class="admin-search-box">
-        <input type="text" id="searchInput" placeholder="Enter candidate name..." aria-label="Candidate name">
-        <button class="btn" id="searchBtn">Search files</button>
+        <input type="text" id="searchInput" placeholder="{{ t('chk.search_ph') }}" aria-label="{{ t('chk.th_name') }}">
+        <button class="btn" id="searchBtn">{{ t('chk.search_btn') }}</button>
     </div>
     <div id="searchResults" class="results-container"></div>
 </div>
 
 <div id="reportContainer" class="card report-view hidden">
     <div class="report-header-flex">
-        <h2 id="reportTitle">Candidate report</h2>
-        <button id="closeReportBtn" class="btn btn-danger btn-sm">Close report</button>
+        <h2 id="reportTitle">{{ t('chk.report_h') }}</h2>
+        <button id="closeReportBtn" class="btn btn-danger btn-sm">{{ t('chk.close_report') }}</button>
     </div>
     <hr class="divider">
     <div id="reportContent"></div>

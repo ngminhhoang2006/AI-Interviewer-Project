@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}AI Interview Session{% endblock %}
+{% block title %}{{ t('int.title') }}{% endblock %}
 
 {% block content %}
 <div class="card interview-card" id="interviewConfig"
@@ -8,17 +8,17 @@
      data-lang-tag="{{ language_tag or '' }}">
 
     <div class="session-bar">
-        <p class="session-title">Interview session: <strong>{{ candidate or "Candidate" }}</strong></p>
+        <p class="session-title">{{ th('int.session', candidate=candidate or t('int.candidate')) }}</p>
         <div class="mode-banner">
-            <span class="mode-label">Interview mode</span>
+            <span class="mode-label">{{ t('int.mode') }}</span>
             <div class="mode-options">
                 <label for="modeVoice" class="radio-label">
                     <input type="radio" id="modeVoice" name="interviewMode" value="voice" checked>
-                    Voice
+                    {{ t('int.voice') }}
                 </label>
                 <label for="modeText" class="radio-label">
                     <input type="radio" id="modeText" name="interviewMode" value="text">
-                    Text
+                    {{ t('int.text') }}
                 </label>
             </div>
         </div>
@@ -29,19 +29,19 @@
             <span id="qBadge" class="pill-badge"></span>
             <span id="diffBadge" class="pill-badge"></span>
         </div>
-        <h2 id="questionText" class="question-prompt">Loading question...</h2>
-        <button id="btnReplay" class="btn btn-quiet btn-sm">Read the question aloud</button>
+        <h2 id="questionText" class="question-prompt" dir="auto">{{ t('int.loading') }}</h2>
+        <button id="btnReplay" class="btn btn-quiet btn-sm">{{ t('int.replay') }}</button>
     </div>
 
     <div class="answer-section">
-        <label for="answerInput" class="input-label">Your answer</label>
-        <textarea id="answerInput" rows="4" placeholder="Type your answer or use voice recording..."></textarea>
+        <label for="answerInput" class="input-label">{{ t('int.answer') }}</label>
+        <textarea id="answerInput" rows="4" dir="auto" placeholder="{{ t('int.answer_ph') }}"></textarea>
 
         <div class="controls-bar">
             <span id="recordingStatus" class="loading-state"></span>
             <div class="btn-group">
-                <button id="btnRecord" class="btn btn-quiet">Start recording</button>
-                <button id="btnSubmit" class="btn">Submit answer</button>
+                <button id="btnRecord" class="btn btn-quiet">{{ t('int.start_rec') }}</button>
+                <button id="btnSubmit" class="btn">{{ t('int.submit') }}</button>
             </div>
         </div>
     </div>
