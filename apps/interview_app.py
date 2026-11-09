@@ -20,6 +20,7 @@ import numpy as np
 from flask_login import current_user, login_required
 from models import db, InterviewResult, ApplicantProfile
 import score_store
+from i18n import t
 
 
 app = Flask(
@@ -112,14 +113,14 @@ def index():
 @app.route("/upload_cv", methods=["POST"])
 def upload_cv():
     if "cv_file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({"error": t("e.no_file")}), 400
 
     file = request.files["cv_file"]
     if file.filename == "":
         return jsonify({"error": "Empty file name"}), 400
 
     if not file.filename.lower().endswith(".pdf"):
-        return jsonify({"error": "Only PDF files are supported"}), 400
+        return jsonify({"error": t("e.pdf_only")}), 400
 
     temp_pdf_path = UPLOAD_FOLDER / file.filename
     file.save(temp_pdf_path)
@@ -161,7 +162,7 @@ def generate_questions():
 
     job_position = questions_generator.clean_job_position(data.get("job_position"))
     if not job_position:
-        return jsonify({"error": "Please enter the position you are applying for."}), 400
+        return jsonify({"error": t("js.need_position")}), 400
 
     cand_dir = UPLOAD_FOLDER / candidate_folder
     cv_json_path = cand_dir / f"{candidate_folder}.json"

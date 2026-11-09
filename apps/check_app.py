@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, jsonify
 import sys
 import sqlite3
 
+from i18n import init_i18n, t
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT / "system"))
 
@@ -27,6 +29,7 @@ app = Flask(
     template_folder=str(PROJECT_ROOT / "templates"),
     static_folder=str(PROJECT_ROOT / "static")
 )
+init_i18n(app)
 
 UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
 DB_PATH = PROJECT_ROOT / "database.db"
@@ -52,14 +55,14 @@ def validate_name(raw) -> str:
     input to SQLite as bound parameters, never by building SQL strings.
     """
     if not isinstance(raw, str):
-        raise ValueError("Candidate name must be text.")
+        raise ValueError(t("v.not_text"))
     name = raw.strip()
     if not name:
-        raise ValueError("Please enter a candidate name.")
+        raise ValueError(t("v.empty"))
     if len(name) > MAX_NAME_LEN:
-        raise ValueError(f"Candidate name is too long (max {MAX_NAME_LEN} characters).")
+        raise ValueError(t("v.too_long", max=MAX_NAME_LEN))
     if _CONTROL_CHARS.search(name):
-        raise ValueError("Candidate name contains invalid characters.")
+        raise ValueError(t("v.invalid_chars"))
     return name
 
 
@@ -163,7 +166,7 @@ def extract_scores_from_md(report_path: Path):
 def search_candidate():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
-        return jsonify({"error": "Invalid request."}), 400
+        return jsonify({"error": t("e.invalid_request")}), 400
     try:
         query = validate_name(data.get("name", ""))
     except ValueError as e:
@@ -171,7 +174,7 @@ def search_candidate():
 
     folders = find_candidate_folders(query)
     if not folders:
-        return jsonify({"candidates": [], "message": f"No candidate matching '{query}' found."})
+        return jsonify({"candidates": [], "message": t("e.no_match", query=query)})
 
     results = []
     for f in folders:
@@ -210,7 +213,7 @@ def search_candidate():
 def get_report():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
-        return jsonify({"error": "Invalid request."}), 400
+        return jsonify({"error": t("e.invalid_request")}), 400
     relative_folder = str(data.get("folder_path", ""))
     report_filename = str(data.get("report_filename", ""))
 
@@ -223,7 +226,7 @@ def get_report():
         return jsonify({"error": "Access denied"}), 403
 
     if not report_path.exists():
-        return jsonify({"error": "Report file not found."}), 404
+        return jsonify({"error": t("e.report_missing")}), 404
 
     md_content = report_path.read_text(encoding="utf-8")
 
