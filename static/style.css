@@ -707,3 +707,17 @@ html:not(.nav-js) .lang-apply { display: inline-flex; }
 [dir="rtl"] select, [dir="rtl"] .custom-select { background-position: 0.8rem 55%, 1.1rem 55%; }
 [dir="rtl"] .nav-compact .navbar .nav-links a.active { box-shadow: inset -3px 0 0 var(--color-accent); }
 .meter-container { direction: ltr; }
+
+/* Grading progress page */
+.grading-card { max-width: var(--form-width); margin-inline: auto; }
+.grade-bar {
+    display: block; width: 100%; height: 12px; margin: var(--space-lg) 0 var(--space-sm);
+    appearance: none; -webkit-appearance: none; border: 0; border-radius: var(--radius-pill);
+    background: var(--color-paper-3); overflow: hidden;
+}
+.grade-bar::-webkit-progress-bar { background: var(--color-paper-3); }
+.grade-bar::-webkit-progress-value { background: var(--color-accent); border-radius: var(--radius-pill); transition: width var(--dur-long) var(--ease-out); }
+.grade-bar::-moz-progress-bar { background: var(--color-accent); border-radius: var(--radius-pill); }
+.grade-count { margin: 0 0 var(--space-2xs); font-family: var(--font-display); font-size: var(--text-lg); font-weight: 500; }
+.grade-error { margin-top: var(--space-lg); }
+.grade-error p { margin-bottom: var(--space-md); color: var(--color-error); }
