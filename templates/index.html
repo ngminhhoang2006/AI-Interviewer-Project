@@ -4,7 +4,7 @@
 
 {% block content %}
 {# Change this number if the setup flow gets more steps #}
-{% set setup_steps = 2 %}
+{% set setup_steps = 4 %}
 <div class="page-header">
     <h1>{{ t('setup.h1') }}</h1>
     <p class="subtitle">{{ t('setup.sub') }}</p>
@@ -82,8 +82,19 @@
                         {'value': 'Japanese', 'label': 'Japanese (日本語)'},
                         {'value': 'Korean', 'label': 'Korean (한국어)'},
                         {'value': 'Thai', 'label': 'Thai (ไทย)'}] %}
+                    {# Preselect the interview language that matches the site (UI) language, e.g. ui_lang 'vi' -> Vietnamese (tag 'vi-VN').
+                       Falls back to English when there is no match. #}
+                    {% set ns = namespace(has_match=false) %}
                     {% for lang in langs %}
-                    <option value="{{ lang.value }}"{% if lang.value == 'English' %} selected{% endif %}>{{ lang.label }}</option>
+                        {% if lang.tag is defined and lang.tag.split('-')[0] == ui_lang %}{% set ns.has_match = true %}{% endif %}
+                    {% endfor %}
+                    {% for lang in langs %}
+                    {% if ns.has_match %}
+                        {% set is_default = lang.tag is defined and lang.tag.split('-')[0] == ui_lang %}
+                    {% else %}
+                        {% set is_default = lang.value == 'English' %}
+                    {% endif %}
+                    <option value="{{ lang.value }}"{% if is_default %} selected{% endif %}>{{ lang.label }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -96,6 +107,11 @@
     </div>
 
     <div id="status" class="loading-state"></div>
+    {# Shown while the questions are being generated: progress bar + estimated time left (see setup.js) #}
+    <div id="genProgress" class="gen-progress" hidden>
+        <progress id="genBar" class="grade-bar" max="100" value="0" aria-labelledby="status"></progress>
+        <p id="genEta" class="loading-state num"></p>
+    </div>
 </div>
 <script src="{{ url_for('static', filename='js/setup.js') }}"></script>
 {% endblock %}

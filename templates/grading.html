@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('grade.h1') }}{% endblock %}
+
+{% block content %}
+{# Shown while /report/<candidate> is still being graded. static/js/grading.js polls the status URL and
+   opens the finished report by itself. #}
+<div class="card grading-card" id="gradingConfig"
+     data-status-url="{{ url_for('api_grading_status', candidate=candidate) }}"
+     data-report-url="{{ url_for('report_page', candidate=candidate) }}">
+    <h1>{{ t('grade.h1') }}</h1>
+    <p class="subtitle">{{ t('grade.note') }}</p>
+
+    <div id="gradeProgress">
+        <progress id="gradeBar" class="grade-bar" max="100" value="0" aria-labelledby="gradeCount"></progress>
+        <p id="gradeCount" class="grade-count num" aria-live="polite"></p>
+        <p id="gradeEta" class="loading-state num"></p>
+    </div>
+
+    <div id="gradeError" class="grade-error" role="alert" hidden>
+        <p>{{ t('grade.error') }}</p>
+        <a class="btn" href="{{ url_for('report_page', candidate=candidate, retry=1) }}">{{ t('grade.retry') }}</a>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/grading.js') }}"></script>
+{% endblock %}
