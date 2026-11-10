@@ -233,5 +233,14 @@
   "v.not_text": "Le nom du candidat doit être du texte.",
   "v.empty": "Veuillez saisir le nom du candidat.",
   "v.too_long": "Le nom du candidat est trop long ({max} caractères maximum).",
-  "v.invalid_chars": "Le nom du candidat contient des caractères invalides."
+  "v.invalid_chars": "Le nom du candidat contient des caractères invalides.",
+  "grade.h1": "Évaluation de votre entretien",
+  "grade.note": "Le rapport s’ouvrira automatiquement lorsque l’évaluation sera terminée.",
+  "grade.error": "L’évaluation a échoué. Vos réponses sont enregistrées, vous pouvez donc réessayer.",
+  "grade.retry": "Réessayer",
+  "js.grade_progress": "{done} questions sur {total} évaluées",
+  "js.grade_summary": "Toutes les questions sont évaluées. Rédaction de la synthèse générale…",
+  "js.grade_eta": "Temps restant estimé : {time}",
+  "js.grade_eta_wait": "Estimation du temps restant…",
+  "js.grade_eta_soon": "Presque terminé…"
 }

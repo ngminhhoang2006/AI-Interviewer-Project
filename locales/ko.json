@@ -233,5 +233,14 @@
   "v.not_text": "지원자 이름은 텍스트여야 합니다.",
   "v.empty": "지원자 이름을 입력해 주세요.",
   "v.too_long": "지원자 이름이 너무 깁니다(최대 {max}자).",
-  "v.invalid_chars": "지원자 이름에 올바르지 않은 문자가 포함되어 있습니다."
+  "v.invalid_chars": "지원자 이름에 올바르지 않은 문자가 포함되어 있습니다.",
+  "grade.h1": "면접을 채점하고 있습니다",
+  "grade.note": "채점이 끝나면 보고서가 자동으로 열립니다.",
+  "grade.error": "채점에 실패했습니다. 답변은 저장되어 있으니 다시 시도해 주세요.",
+  "grade.retry": "다시 시도",
+  "js.grade_progress": "{total}개 질문 중 {done}개 채점 완료",
+  "js.grade_summary": "모든 질문의 채점이 끝났습니다. 종합 평가를 작성하는 중…",
+  "js.grade_eta": "예상 남은 시간: {time}",
+  "js.grade_eta_wait": "남은 시간을 추정하는 중…",
+  "js.grade_eta_soon": "거의 완료되었습니다…"
 }

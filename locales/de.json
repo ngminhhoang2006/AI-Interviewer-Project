@@ -233,5 +233,14 @@
   "v.not_text": "Der Name des Kandidaten muss Text sein.",
   "v.empty": "Bitte gib den Namen des Kandidaten ein.",
   "v.too_long": "Der Name des Kandidaten ist zu lang (maximal {max} Zeichen).",
-  "v.invalid_chars": "Der Name des Kandidaten enthält ungültige Zeichen."
+  "v.invalid_chars": "Der Name des Kandidaten enthält ungültige Zeichen.",
+  "grade.h1": "Ihr Interview wird bewertet",
+  "grade.note": "Der Bericht öffnet sich automatisch, sobald die Bewertung abgeschlossen ist.",
+  "grade.error": "Die Bewertung ist fehlgeschlagen. Ihre Antworten sind gespeichert, Sie können es erneut versuchen.",
+  "grade.retry": "Erneut versuchen",
+  "js.grade_progress": "{done} von {total} Fragen bewertet",
+  "js.grade_summary": "Alle Fragen bewertet. Die Gesamtzusammenfassung wird erstellt …",
+  "js.grade_eta": "Geschätzte verbleibende Zeit: {time}",
+  "js.grade_eta_wait": "Verbleibende Zeit wird geschätzt …",
+  "js.grade_eta_soon": "Fast fertig …"
 }

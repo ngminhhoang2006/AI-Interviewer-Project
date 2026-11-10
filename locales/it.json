@@ -233,5 +233,14 @@
   "v.not_text": "Il nome del candidato deve essere testo.",
   "v.empty": "Inserisci il nome del candidato.",
   "v.too_long": "Il nome del candidato è troppo lungo (massimo {max} caratteri).",
-  "v.invalid_chars": "Il nome del candidato contiene caratteri non validi."
+  "v.invalid_chars": "Il nome del candidato contiene caratteri non validi.",
+  "grade.h1": "Valutazione del colloquio in corso",
+  "grade.note": "Il report si aprirà automaticamente al termine della valutazione.",
+  "grade.error": "Valutazione non riuscita. Le tue risposte sono salvate, quindi puoi riprovare.",
+  "grade.retry": "Riprova",
+  "js.grade_progress": "{done} domande su {total} valutate",
+  "js.grade_summary": "Tutte le domande sono state valutate. Stesura del riepilogo generale…",
+  "js.grade_eta": "Tempo rimanente stimato: {time}",
+  "js.grade_eta_wait": "Stima del tempo rimanente…",
+  "js.grade_eta_soon": "Quasi finito…"
 }

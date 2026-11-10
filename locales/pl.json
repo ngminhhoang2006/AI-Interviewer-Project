@@ -233,5 +233,14 @@
   "v.not_text": "Imię i nazwisko kandydata musi być tekstem.",
   "v.empty": "Wpisz imię i nazwisko kandydata.",
   "v.too_long": "Imię i nazwisko kandydata jest zbyt długie (maks. {max} znaków).",
-  "v.invalid_chars": "Imię i nazwisko kandydata zawiera niedozwolone znaki."
+  "v.invalid_chars": "Imię i nazwisko kandydata zawiera niedozwolone znaki.",
+  "grade.h1": "Ocenianie rozmowy kwalifikacyjnej",
+  "grade.note": "Raport otworzy się automatycznie po zakończeniu oceniania.",
+  "grade.error": "Ocenianie nie powiodło się. Twoje odpowiedzi są zapisane, więc możesz spróbować ponownie.",
+  "grade.retry": "Spróbuj ponownie",
+  "js.grade_progress": "Oceniono pytań: {done} z {total}",
+  "js.grade_summary": "Wszystkie pytania ocenione. Pisanie podsumowania ogólnego…",
+  "js.grade_eta": "Szacowany pozostały czas: {time}",
+  "js.grade_eta_wait": "Szacowanie pozostałego czasu…",
+  "js.grade_eta_soon": "Prawie gotowe…"
 }

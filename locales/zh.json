@@ -233,5 +233,14 @@
   "v.not_text": "候选人姓名必须是文本。",
   "v.empty": "请输入候选人姓名。",
   "v.too_long": "候选人姓名过长（最多 {max} 个字符）。",
-  "v.invalid_chars": "候选人姓名包含无效字符。"
+  "v.invalid_chars": "候选人姓名包含无效字符。",
+  "grade.h1": "正在评估您的面试",
+  "grade.note": "评估完成后，报告将自动打开。",
+  "grade.error": "评估失败。您的回答已保存，可以重试。",
+  "grade.retry": "重试",
+  "js.grade_progress": "已评估 {done}/{total} 个问题",
+  "js.grade_summary": "所有问题已评估完毕，正在撰写总体评价…",
+  "js.grade_eta": "预计剩余时间：{time}",
+  "js.grade_eta_wait": "正在估算剩余时间…",
+  "js.grade_eta_soon": "即将完成…"
 }

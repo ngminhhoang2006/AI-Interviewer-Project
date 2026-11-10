@@ -233,5 +233,14 @@
   "v.not_text": "候補者名はテキストである必要があります。",
   "v.empty": "候補者名を入力してください。",
   "v.too_long": "候補者名が長すぎます（最大{max}文字）。",
-  "v.invalid_chars": "候補者名に無効な文字が含まれています。"
+  "v.invalid_chars": "候補者名に無効な文字が含まれています。",
+  "grade.h1": "面接を採点しています",
+  "grade.note": "採点が完了すると、レポートが自動的に開きます。",
+  "grade.error": "採点に失敗しました。回答は保存されているので、もう一度お試しください。",
+  "grade.retry": "再試行",
+  "js.grade_progress": "{total} 問中 {done} 問を採点済み",
+  "js.grade_summary": "すべての質問の採点が完了しました。総合評価を作成しています…",
+  "js.grade_eta": "残り時間の目安: {time}",
+  "js.grade_eta_wait": "残り時間を見積もっています…",
+  "js.grade_eta_soon": "まもなく完了します…"
 }
