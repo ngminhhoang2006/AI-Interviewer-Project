@@ -233,5 +233,14 @@
   "v.not_text": "Aday adı metin olmalıdır.",
   "v.empty": "Lütfen bir aday adı girin.",
   "v.too_long": "Aday adı çok uzun (en fazla {max} karakter).",
-  "v.invalid_chars": "Aday adı geçersiz karakterler içeriyor."
+  "v.invalid_chars": "Aday adı geçersiz karakterler içeriyor.",
+  "grade.h1": "Mülakatınız değerlendiriliyor",
+  "grade.note": "Değerlendirme bittiğinde rapor otomatik olarak açılacak.",
+  "grade.error": "Değerlendirme başarısız oldu. Cevaplarınız kaydedildi, tekrar deneyebilirsiniz.",
+  "grade.retry": "Tekrar dene",
+  "js.grade_progress": "{total} sorudan {done} tanesi değerlendirildi",
+  "js.grade_summary": "Tüm sorular değerlendirildi. Genel özet yazılıyor…",
+  "js.grade_eta": "Tahmini kalan süre: {time}",
+  "js.grade_eta_wait": "Kalan süre tahmin ediliyor…",
+  "js.grade_eta_soon": "Neredeyse bitti…"
 }

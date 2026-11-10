@@ -233,5 +233,14 @@
   "v.not_text": "Candidate name must be text.",
   "v.empty": "Please enter a candidate name.",
   "v.too_long": "Candidate name is too long (max {max} characters).",
-  "v.invalid_chars": "Candidate name contains invalid characters."
+  "v.invalid_chars": "Candidate name contains invalid characters.",
+  "grade.h1": "Grading your interview",
+  "grade.note": "The report will open automatically when grading is finished.",
+  "grade.error": "Grading failed. Your answers are saved, so you can try again.",
+  "grade.retry": "Try again",
+  "js.grade_progress": "{done} of {total} questions graded",
+  "js.grade_summary": "All questions graded. Writing the overall summary…",
+  "js.grade_eta": "Estimated time left: {time}",
+  "js.grade_eta_wait": "Estimating time left…",
+  "js.grade_eta_soon": "Almost done…"
 }

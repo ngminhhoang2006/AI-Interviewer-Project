@@ -233,5 +233,14 @@
   "v.not_text": "Tên ứng viên phải là văn bản.",
   "v.empty": "Vui lòng nhập tên ứng viên.",
   "v.too_long": "Tên ứng viên quá dài (tối đa {max} ký tự).",
-  "v.invalid_chars": "Tên ứng viên chứa ký tự không hợp lệ."
+  "v.invalid_chars": "Tên ứng viên chứa ký tự không hợp lệ.",
+  "grade.h1": "Đang chấm điểm buổi phỏng vấn",
+  "grade.note": "Báo cáo sẽ tự động mở khi chấm điểm xong.",
+  "grade.error": "Chấm điểm không thành công. Câu trả lời của bạn đã được lưu nên bạn có thể thử lại.",
+  "grade.retry": "Thử lại",
+  "js.grade_progress": "Đã chấm {done}/{total} câu hỏi",
+  "js.grade_summary": "Đã chấm xong tất cả câu hỏi. Đang viết phần nhận xét tổng quan…",
+  "js.grade_eta": "Thời gian còn lại ước tính: {time}",
+  "js.grade_eta_wait": "Đang ước tính thời gian còn lại…",
+  "js.grade_eta_soon": "Sắp xong…"
 }

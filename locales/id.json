@@ -233,5 +233,14 @@
   "v.not_text": "Nama kandidat harus berupa teks.",
   "v.empty": "Masukkan nama kandidat.",
   "v.too_long": "Nama kandidat terlalu panjang (maksimal {max} karakter).",
-  "v.invalid_chars": "Nama kandidat mengandung karakter yang tidak valid."
+  "v.invalid_chars": "Nama kandidat mengandung karakter yang tidak valid.",
+  "grade.h1": "Menilai wawancara Anda",
+  "grade.note": "Laporan akan terbuka otomatis setelah penilaian selesai.",
+  "grade.error": "Penilaian gagal. Jawaban Anda sudah tersimpan, jadi Anda bisa mencoba lagi.",
+  "grade.retry": "Coba lagi",
+  "js.grade_progress": "{done} dari {total} pertanyaan sudah dinilai",
+  "js.grade_summary": "Semua pertanyaan sudah dinilai. Menulis ringkasan keseluruhan…",
+  "js.grade_eta": "Perkiraan sisa waktu: {time}",
+  "js.grade_eta_wait": "Memperkirakan sisa waktu…",
+  "js.grade_eta_soon": "Hampir selesai…"
 }

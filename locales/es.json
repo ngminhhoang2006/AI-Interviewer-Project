@@ -233,5 +233,14 @@
   "v.not_text": "El nombre del candidato debe ser texto.",
   "v.empty": "Introduce el nombre del candidato.",
   "v.too_long": "El nombre del candidato es demasiado largo (máximo {max} caracteres).",
-  "v.invalid_chars": "El nombre del candidato contiene caracteres no válidos."
+  "v.invalid_chars": "El nombre del candidato contiene caracteres no válidos.",
+  "grade.h1": "Calificando tu entrevista",
+  "grade.note": "El informe se abrirá automáticamente cuando termine la calificación.",
+  "grade.error": "La calificación falló. Tus respuestas están guardadas, así que puedes intentarlo de nuevo.",
+  "grade.retry": "Reintentar",
+  "js.grade_progress": "{done} de {total} preguntas calificadas",
+  "js.grade_summary": "Todas las preguntas calificadas. Redactando el resumen general…",
+  "js.grade_eta": "Tiempo restante estimado: {time}",
+  "js.grade_eta_wait": "Estimando el tiempo restante…",
+  "js.grade_eta_soon": "Casi listo…"
 }
