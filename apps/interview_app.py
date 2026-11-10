@@ -10,6 +10,9 @@ import json
 import re
 import shutil
 import subprocess
+import threading
+import time
+import uuid
 from flask import Flask, render_template, request, jsonify, url_for, abort
 import cv_reader
 import questions_generator
@@ -180,31 +183,159 @@ def generate_questions():
         with open(cv_json_path, "w", encoding="utf-8") as f:
             json.dump(resume, f, indent=4, ensure_ascii=False)
 
-    try:
-        raw_questions = questions_generator.generate_questions(resume, language=language, job_position=job_position)
-    except Exception as e:
-        app.logger.exception("Question generation failed")
-        return jsonify({"error": questions_generator.describe_generation_error(e, language)}), 500
-
-    clean_name = (resume.get("name") or candidate_folder).replace("\u00a0", " ").strip()
-
-    output = {
-        "candidate": clean_name,
-        "language": language,
-        "job_position": job_position,
-        "source_file": cv_json_path.name,
-        "questions": raw_questions,
-    }
-
+    # Generation takes a while, so it runs in the background and the setup page follows its progress
     lang_slug = language.lower()
     questions_path = cand_dir / f"{candidate_folder}_questions_{lang_slug}.json"
-    questions_generator.save_questions(output, questions_path)
+    job_id = _start_generation_job(
+        resume, language, job_position, candidate_folder, cv_json_path, questions_path,
+        redirect_url=url_for("mic_test_page", candidate=candidate_folder, lang=lang_slug))
 
     return jsonify({
-        "status": "success",
-        "questions_file": questions_path.name,
-        "redirect": url_for("mic_test_page", candidate=candidate_folder, lang=lang_slug)
+        "status": "started",
+        "job_id": job_id,
+        "status_url": url_for("api_generation_status", job_id=job_id),
     })
+
+
+# ---- Question generation runs in a background thread so the browser can show a time estimate ------
+# One job per click, kept in memory (single-process server) and looked up by a random id.
+GENERATION_JOBS = {}
+GENERATION_LOCK = threading.Lock()
+GENERATION_STATS_FILE = PROJECT_ROOT / "generation_stats.json"   # timings of earlier runs, for the estimate
+GENERATION_STATS_KEEP = 5            # how many earlier runs the estimate averages
+DEFAULT_EXPECTED_TOKENS = 1500       # used for the progress bar until there is a history of earlier runs
+
+
+def _stats_key(language):
+    return f"{questions_generator.QUESTION_MODEL}|{language}"
+
+
+def _load_generation_stats():
+    try:
+        return json.loads(GENERATION_STATS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _expected_generation(language):
+    """Average size and speed of the last few runs for this model and language, or None if there are none."""
+    runs = _load_generation_stats().get(_stats_key(language)) or []
+    if not runs:
+        return None
+    try:
+        return {k: sum(r[k] for r in runs) / len(runs) for k in ("tokens", "ttft", "rate")}
+    except (KeyError, TypeError):
+        return None
+
+
+def _record_generation(job):
+    """Remembers how long this run took (call with GENERATION_LOCK held)."""
+    n, first, last, began = job["tokens"], job["first_token_at"], job["last_token_at"], job["attempt_started"]
+    if n < 20 or first is None or last is None or last - first < 0.5:
+        return
+    stats = _load_generation_stats()
+    runs = stats.get(_stats_key(job["language"]), [])
+    runs.append({"tokens": n, "ttft": first - began, "rate": (n - 1) / (last - first)})
+    stats[_stats_key(job["language"])] = runs[-GENERATION_STATS_KEEP:]
+    try:
+        GENERATION_STATS_FILE.write_text(json.dumps(stats, indent=2), encoding="utf-8")
+    except OSError as e:
+        print(f"[warn] could not save generation timings: {e}")
+
+
+def _estimate_generation(job, now):
+    """Returns (percent 0-100, seconds left or None) for a running job."""
+    exp, n = job["expected"], job["tokens"]
+    exp_tokens = exp["tokens"] if exp else DEFAULT_EXPECTED_TOKENS
+    exp_tokens = max(exp_tokens, n * 1.15 + 1)       # never look finished while words are still arriving
+    percent = min(n / exp_tokens, 0.97) * 100
+
+    if job["first_token_at"] is None:                # the model is still loading / reading the CV
+        if not exp:
+            return percent, None
+        waited = now - job["attempt_started"]
+        return percent, max(0.0, exp["ttft"] - waited) + exp_tokens / exp["rate"]
+
+    spent = now - job["first_token_at"]
+    if n >= 5 and spent >= 0.5:
+        rate = n / spent                              # this run's own speed
+    elif exp:
+        rate = exp["rate"]
+    else:
+        return percent, None
+    return percent, max(0.0, (exp_tokens - n) / rate)
+
+
+def _run_generation_job(job, resume, language, job_position, candidate_folder, cv_json_path, questions_path):
+    def on_progress(attempt, tokens):
+        now = time.monotonic()
+        with GENERATION_LOCK:
+            if attempt != job["attempt"]:             # a new attempt: start counting again
+                job.update(attempt=attempt, tokens=0, attempt_started=now, first_token_at=None, last_token_at=None)
+            if tokens:
+                job["tokens"], job["last_token_at"] = tokens, now
+                if job["first_token_at"] is None:
+                    job["first_token_at"] = now
+
+    try:
+        raw_questions = questions_generator.generate_questions(
+            resume, language=language, job_position=job_position, progress=on_progress)
+        clean_name = (resume.get("name") or candidate_folder).replace("\u00a0", " ").strip()
+        output = {
+            "candidate": clean_name,
+            "language": language,
+            "job_position": job_position,
+            "source_file": cv_json_path.name,
+            "questions": raw_questions,
+        }
+        questions_generator.save_questions(output, questions_path)
+        with GENERATION_LOCK:
+            _record_generation(job)
+            job["state"] = "done"
+    except Exception as e:
+        app.logger.exception("Question generation failed")
+        message = questions_generator.describe_generation_error(e, language)
+        with GENERATION_LOCK:
+            job["state"], job["error"] = "error", message
+
+
+def _start_generation_job(resume, language, job_position, candidate_folder, cv_json_path, questions_path, redirect_url):
+    now = time.monotonic()
+    job = {
+        "state": "running", "error": None, "redirect": redirect_url, "language": language,
+        "attempt": 0, "tokens": 0, "attempt_started": now, "first_token_at": None, "last_token_at": None,
+        "expected": _expected_generation(language), "created": now,
+    }
+    job_id = uuid.uuid4().hex
+    with GENERATION_LOCK:
+        for old_id in [k for k, j in GENERATION_JOBS.items() if now - j["created"] > 3600]:
+            del GENERATION_JOBS[old_id]               # forget jobs older than an hour
+        GENERATION_JOBS[job_id] = job
+    threading.Thread(
+        target=_run_generation_job,
+        args=(job, resume, language, job_position, candidate_folder, cv_json_path, questions_path),
+        daemon=True).start()
+    return job_id
+
+
+@app.route("/api/generation_status/<job_id>")
+def api_generation_status(job_id):
+    """Progress of a question-generation job, polled by static/js/setup.js."""
+    with GENERATION_LOCK:
+        job = GENERATION_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"state": "missing"})
+        if job["state"] == "running":
+            percent, eta = _estimate_generation(job, time.monotonic())
+            body = {"state": "running", "percent": round(percent), "eta": eta}
+        elif job["state"] == "done":
+            body = {"state": "done", "percent": 100, "eta": 0, "redirect": job["redirect"]}
+        else:
+            body = {"state": "error", "error": job["error"]}
+    response = jsonify(body)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 @app.route("/mic_test/<candidate>/<lang>")
 def mic_test_page(candidate, lang):
@@ -374,6 +505,10 @@ def api_save_answers():
     with open(answers_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=4, ensure_ascii=False)
 
+    # New answers: forget any earlier grading job so /report/<candidate> grades these ones
+    with GRADING_LOCK:
+        GRADING_JOBS.pop(candidate_folder, None)
+
     return jsonify({
         "status": "success",
         "redirect": url_for("report_page", candidate=candidate_folder)
@@ -458,26 +593,110 @@ def save_interview_scores(user_id, candidate, language, report):
     return None, "failed"
 
 
+# ---- Grading runs in a background thread so the browser can show progress -------------------------
+# One job per candidate folder, kept in memory (single-process server). A job is a dict:
+#   state: "running" | "done" | "error"     done/total: questions graded so far / all questions
+#   stage: "questions" | "summary"          durations: seconds each graded question took
+#   step_started: monotonic time the current step began      report: the finished report
+GRADING_JOBS = {}
+GRADING_LOCK = threading.Lock()
+
+
+def _run_grading_job(candidate, data, job):
+    cand_dir = UPLOAD_FOLDER / candidate
+
+    def on_progress(done, total, stage):
+        now = time.monotonic()
+        with GRADING_LOCK:
+            job["total"] = total
+            if stage == "questions" and done > job["done"]:
+                job["durations"].append(now - job["step_started"])
+                job["done"] = done
+                job["step_started"] = now
+            elif stage == "summary" and job["stage"] != "summary":
+                job["stage"] = "summary"
+                job["done"] = done
+                job["step_started"] = now
+
+    try:
+        report = grade_interview.grade_interview(
+            data=data,
+            model=grade_interview.OLLAMA_MODEL,
+            job_title=data.get("job_position") or "AI Engineer",
+            job_requirements=None,
+            progress=on_progress
+        )
+        report_path = cand_dir / f"{candidate}_answers_report.json"
+        report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        grade_interview.write_markdown_report(report, cand_dir / f"{candidate}_answers_report.md")
+        with GRADING_LOCK:
+            job["report"] = report
+            job["state"] = "done"
+    except Exception as e:
+        print(f"[Grading Error] {candidate}: {e}")
+        with GRADING_LOCK:
+            job["state"] = "error"
+
+
+def _start_grading_job(candidate, answers_path):
+    """Starts grading in the background. Call with GRADING_LOCK held."""
+    data = json.loads(answers_path.read_text(encoding="utf-8"))
+    job = {
+        "state": "running", "stage": "questions", "done": 0,
+        "total": len(data.get("answers", [])),
+        "durations": [], "step_started": time.monotonic(), "report": None,
+    }
+    GRADING_JOBS[candidate] = job
+    threading.Thread(target=_run_grading_job, args=(candidate, data, job), daemon=True).start()
+    return job
+
+
+@app.route("/api/grading_status/<candidate>")
+def api_grading_status(candidate):
+    """Progress of the grading job, polled by static/js/grading.js."""
+    with GRADING_LOCK:
+        job = GRADING_JOBS.get(candidate)
+        if job is None:
+            return jsonify({"state": "missing"})
+        total, done = job["total"], job["done"]
+        eta = None
+        if job["state"] == "running" and job["durations"]:
+            # Average time per step so far, times the steps still to do (the questions left plus the
+            # final summary), minus the time the current step has already been running.
+            avg = sum(job["durations"]) / len(job["durations"])
+            steps_left = (total + 1) - done
+            eta = max(0.0, avg * steps_left - (time.monotonic() - job["step_started"]))
+        response = jsonify({
+            "state": job["state"], "stage": job["stage"],
+            "done": done, "total": total, "eta": eta,
+        })
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.route("/report/<candidate>")
 def report_page(candidate):
     cand_dir = UPLOAD_FOLDER / candidate
     answers_path = cand_dir / f"{candidate}_answers.json"
-    report_path = cand_dir / f"{candidate}_answers_report.json"
 
     if not answers_path.exists():
         abort(404)
 
-    data = json.loads(answers_path.read_text(encoding="utf-8"))
-    report = grade_interview.grade_interview(
-        data=data,
-        model=grade_interview.OLLAMA_MODEL,
-        job_title=data.get("job_position") or "AI Engineer",
-        job_requirements=None
-    )
+    retry = request.args.get("retry") == "1"
+    with GRADING_LOCK:
+        job = GRADING_JOBS.get(candidate)
+        if job is None or (retry and job["state"] == "error"):
+            job = _start_grading_job(candidate, answers_path)
+        finished = job["state"] == "done"
+        if finished:
+            GRADING_JOBS.pop(candidate, None)
+            report = job["report"]
 
-    report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    md_path = cand_dir / f"{candidate}_answers_report.md"
-    grade_interview.write_markdown_report(report, md_path)
+    if not finished:
+        # Still grading (or failed): show the progress page, which polls /api/grading_status
+        return render_template("grading.html", candidate=candidate)
+
+    data = json.loads(answers_path.read_text(encoding="utf-8"))
 
     # Scores are saved only for a logged-in user.
     save_status = "not_logged_in"
