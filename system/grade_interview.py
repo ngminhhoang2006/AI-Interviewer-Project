@@ -106,14 +106,34 @@ def grade_answer(model: str, job_title: str, q: dict) -> dict:
     return parsed
 
 
-def grade_interview(data: dict, model: str, job_title: str, job_requirements: str | None) -> dict:
+def grade_interview(data: dict, model: str, job_title: str, job_requirements: str | None,
+                    progress=None) -> dict:
+    """Grades every answer, then writes the overall judgement.
+
+    progress: optional callback progress(done, total, stage), called with
+      - (0, total, "questions") before the first question,
+      - (n, total, "questions") after each question is graded,
+      - (total, total, "summary") just before the overall summary is requested.
+    A failing callback never breaks grading.
+    """
     raw_candidate = data.get("candidate", "Unknown candidate")
     candidate = raw_candidate.replace("\u00a0", " ").strip()
     answers = data.get("answers", [])
 
     print(f"Grading {len(answers)} answers for {candidate} using model '{model}'...")
 
+    total = len(answers)
+
+    def report_progress(done, stage):
+        if progress is None:
+            return
+        try:
+            progress(done, total, stage)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [warn] progress callback failed: {e}", file=sys.stderr)
+
     results = []
+    report_progress(0, "questions")
     for idx, q in enumerate(answers, start=1):
         q_num = q.get("question_number", idx)
         print(f"  -> Q{q_num}: {q.get('question', '')[:60]}...")
@@ -126,7 +146,9 @@ def grade_interview(data: dict, model: str, job_title: str, job_requirements: st
             "answer": q.get("answer"),
             **grade,
         })
+        report_progress(len(results), "questions")
 
+    report_progress(total, "summary")
     summary_lines = []
     for r in results:
         summary_lines.append(
