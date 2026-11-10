@@ -10,6 +10,8 @@ import json
 import re
 import shutil
 import subprocess
+import threading
+import time
 from flask import Flask, render_template, request, jsonify, url_for, abort
 import cv_reader
 import questions_generator
@@ -374,6 +376,10 @@ def api_save_answers():
     with open(answers_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=4, ensure_ascii=False)
 
+    # New answers: forget any earlier grading job so /report/<candidate> grades these ones
+    with GRADING_LOCK:
+        GRADING_JOBS.pop(candidate_folder, None)
+
     return jsonify({
         "status": "success",
         "redirect": url_for("report_page", candidate=candidate_folder)
@@ -458,26 +464,110 @@ def save_interview_scores(user_id, candidate, language, report):
     return None, "failed"
 
 
+# ---- Grading runs in a background thread so the browser can show progress -------------------------
+# One job per candidate folder, kept in memory (single-process server). A job is a dict:
+#   state: "running" | "done" | "error"     done/total: questions graded so far / all questions
+#   stage: "questions" | "summary"          durations: seconds each graded question took
+#   step_started: monotonic time the current step began      report: the finished report
+GRADING_JOBS = {}
+GRADING_LOCK = threading.Lock()
+
+
+def _run_grading_job(candidate, data, job):
+    cand_dir = UPLOAD_FOLDER / candidate
+
+    def on_progress(done, total, stage):
+        now = time.monotonic()
+        with GRADING_LOCK:
+            job["total"] = total
+            if stage == "questions" and done > job["done"]:
+                job["durations"].append(now - job["step_started"])
+                job["done"] = done
+                job["step_started"] = now
+            elif stage == "summary" and job["stage"] != "summary":
+                job["stage"] = "summary"
+                job["done"] = done
+                job["step_started"] = now
+
+    try:
+        report = grade_interview.grade_interview(
+            data=data,
+            model=grade_interview.OLLAMA_MODEL,
+            job_title=data.get("job_position") or "AI Engineer",
+            job_requirements=None,
+            progress=on_progress
+        )
+        report_path = cand_dir / f"{candidate}_answers_report.json"
+        report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        grade_interview.write_markdown_report(report, cand_dir / f"{candidate}_answers_report.md")
+        with GRADING_LOCK:
+            job["report"] = report
+            job["state"] = "done"
+    except Exception as e:
+        print(f"[Grading Error] {candidate}: {e}")
+        with GRADING_LOCK:
+            job["state"] = "error"
+
+
+def _start_grading_job(candidate, answers_path):
+    """Starts grading in the background. Call with GRADING_LOCK held."""
+    data = json.loads(answers_path.read_text(encoding="utf-8"))
+    job = {
+        "state": "running", "stage": "questions", "done": 0,
+        "total": len(data.get("answers", [])),
+        "durations": [], "step_started": time.monotonic(), "report": None,
+    }
+    GRADING_JOBS[candidate] = job
+    threading.Thread(target=_run_grading_job, args=(candidate, data, job), daemon=True).start()
+    return job
+
+
+@app.route("/api/grading_status/<candidate>")
+def api_grading_status(candidate):
+    """Progress of the grading job, polled by static/js/grading.js."""
+    with GRADING_LOCK:
+        job = GRADING_JOBS.get(candidate)
+        if job is None:
+            return jsonify({"state": "missing"})
+        total, done = job["total"], job["done"]
+        eta = None
+        if job["state"] == "running" and job["durations"]:
+            # Average time per step so far, times the steps still to do (the questions left plus the
+            # final summary), minus the time the current step has already been running.
+            avg = sum(job["durations"]) / len(job["durations"])
+            steps_left = (total + 1) - done
+            eta = max(0.0, avg * steps_left - (time.monotonic() - job["step_started"]))
+        response = jsonify({
+            "state": job["state"], "stage": job["stage"],
+            "done": done, "total": total, "eta": eta,
+        })
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.route("/report/<candidate>")
 def report_page(candidate):
     cand_dir = UPLOAD_FOLDER / candidate
     answers_path = cand_dir / f"{candidate}_answers.json"
-    report_path = cand_dir / f"{candidate}_answers_report.json"
 
     if not answers_path.exists():
         abort(404)
 
-    data = json.loads(answers_path.read_text(encoding="utf-8"))
-    report = grade_interview.grade_interview(
-        data=data,
-        model=grade_interview.OLLAMA_MODEL,
-        job_title=data.get("job_position") or "AI Engineer",
-        job_requirements=None
-    )
+    retry = request.args.get("retry") == "1"
+    with GRADING_LOCK:
+        job = GRADING_JOBS.get(candidate)
+        if job is None or (retry and job["state"] == "error"):
+            job = _start_grading_job(candidate, answers_path)
+        finished = job["state"] == "done"
+        if finished:
+            GRADING_JOBS.pop(candidate, None)
+            report = job["report"]
 
-    report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    md_path = cand_dir / f"{candidate}_answers_report.md"
-    grade_interview.write_markdown_report(report, md_path)
+    if not finished:
+        # Still grading (or failed): show the progress page, which polls /api/grading_status
+        return render_template("grading.html", candidate=candidate)
+
+    data = json.loads(answers_path.read_text(encoding="utf-8"))
 
     # Scores are saved only for a logged-in user.
     save_status = "not_logged_in"
