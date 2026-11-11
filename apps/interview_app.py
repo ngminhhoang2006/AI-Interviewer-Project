@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import threading
 import time
+import uuid
 from flask import Flask, render_template, request, jsonify, url_for, abort
 import cv_reader
 import questions_generator
@@ -182,31 +183,159 @@ def generate_questions():
         with open(cv_json_path, "w", encoding="utf-8") as f:
             json.dump(resume, f, indent=4, ensure_ascii=False)
 
-    try:
-        raw_questions = questions_generator.generate_questions(resume, language=language, job_position=job_position)
-    except Exception as e:
-        app.logger.exception("Question generation failed")
-        return jsonify({"error": questions_generator.describe_generation_error(e, language)}), 500
-
-    clean_name = (resume.get("name") or candidate_folder).replace("\u00a0", " ").strip()
-
-    output = {
-        "candidate": clean_name,
-        "language": language,
-        "job_position": job_position,
-        "source_file": cv_json_path.name,
-        "questions": raw_questions,
-    }
-
+    # Generation takes a while, so it runs in the background and the setup page follows its progress
     lang_slug = language.lower()
     questions_path = cand_dir / f"{candidate_folder}_questions_{lang_slug}.json"
-    questions_generator.save_questions(output, questions_path)
+    job_id = _start_generation_job(
+        resume, language, job_position, candidate_folder, cv_json_path, questions_path,
+        redirect_url=url_for("mic_test_page", candidate=candidate_folder, lang=lang_slug))
 
     return jsonify({
-        "status": "success",
-        "questions_file": questions_path.name,
-        "redirect": url_for("mic_test_page", candidate=candidate_folder, lang=lang_slug)
+        "status": "started",
+        "job_id": job_id,
+        "status_url": url_for("api_generation_status", job_id=job_id),
     })
+
+
+# ---- Question generation runs in a background thread so the browser can show a time estimate ------
+# One job per click, kept in memory (single-process server) and looked up by a random id.
+GENERATION_JOBS = {}
+GENERATION_LOCK = threading.Lock()
+GENERATION_STATS_FILE = PROJECT_ROOT / "generation_stats.json"   # timings of earlier runs, for the estimate
+GENERATION_STATS_KEEP = 5            # how many earlier runs the estimate averages
+DEFAULT_EXPECTED_TOKENS = 1500       # used for the progress bar until there is a history of earlier runs
+
+
+def _stats_key(language):
+    return f"{questions_generator.QUESTION_MODEL}|{language}"
+
+
+def _load_generation_stats():
+    try:
+        return json.loads(GENERATION_STATS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _expected_generation(language):
+    """Average size and speed of the last few runs for this model and language, or None if there are none."""
+    runs = _load_generation_stats().get(_stats_key(language)) or []
+    if not runs:
+        return None
+    try:
+        return {k: sum(r[k] for r in runs) / len(runs) for k in ("tokens", "ttft", "rate")}
+    except (KeyError, TypeError):
+        return None
+
+
+def _record_generation(job):
+    """Remembers how long this run took (call with GENERATION_LOCK held)."""
+    n, first, last, began = job["tokens"], job["first_token_at"], job["last_token_at"], job["attempt_started"]
+    if n < 20 or first is None or last is None or last - first < 0.5:
+        return
+    stats = _load_generation_stats()
+    runs = stats.get(_stats_key(job["language"]), [])
+    runs.append({"tokens": n, "ttft": first - began, "rate": (n - 1) / (last - first)})
+    stats[_stats_key(job["language"])] = runs[-GENERATION_STATS_KEEP:]
+    try:
+        GENERATION_STATS_FILE.write_text(json.dumps(stats, indent=2), encoding="utf-8")
+    except OSError as e:
+        print(f"[warn] could not save generation timings: {e}")
+
+
+def _estimate_generation(job, now):
+    """Returns (percent 0-100, seconds left or None) for a running job."""
+    exp, n = job["expected"], job["tokens"]
+    exp_tokens = exp["tokens"] if exp else DEFAULT_EXPECTED_TOKENS
+    exp_tokens = max(exp_tokens, n * 1.15 + 1)       # never look finished while words are still arriving
+    percent = min(n / exp_tokens, 0.97) * 100
+
+    if job["first_token_at"] is None:                # the model is still loading / reading the CV
+        if not exp:
+            return percent, None
+        waited = now - job["attempt_started"]
+        return percent, max(0.0, exp["ttft"] - waited) + exp_tokens / exp["rate"]
+
+    spent = now - job["first_token_at"]
+    if n >= 5 and spent >= 0.5:
+        rate = n / spent                              # this run's own speed
+    elif exp:
+        rate = exp["rate"]
+    else:
+        return percent, None
+    return percent, max(0.0, (exp_tokens - n) / rate)
+
+
+def _run_generation_job(job, resume, language, job_position, candidate_folder, cv_json_path, questions_path):
+    def on_progress(attempt, tokens):
+        now = time.monotonic()
+        with GENERATION_LOCK:
+            if attempt != job["attempt"]:             # a new attempt: start counting again
+                job.update(attempt=attempt, tokens=0, attempt_started=now, first_token_at=None, last_token_at=None)
+            if tokens:
+                job["tokens"], job["last_token_at"] = tokens, now
+                if job["first_token_at"] is None:
+                    job["first_token_at"] = now
+
+    try:
+        raw_questions = questions_generator.generate_questions(
+            resume, language=language, job_position=job_position, progress=on_progress)
+        clean_name = (resume.get("name") or candidate_folder).replace("\u00a0", " ").strip()
+        output = {
+            "candidate": clean_name,
+            "language": language,
+            "job_position": job_position,
+            "source_file": cv_json_path.name,
+            "questions": raw_questions,
+        }
+        questions_generator.save_questions(output, questions_path)
+        with GENERATION_LOCK:
+            _record_generation(job)
+            job["state"] = "done"
+    except Exception as e:
+        app.logger.exception("Question generation failed")
+        message = questions_generator.describe_generation_error(e, language)
+        with GENERATION_LOCK:
+            job["state"], job["error"] = "error", message
+
+
+def _start_generation_job(resume, language, job_position, candidate_folder, cv_json_path, questions_path, redirect_url):
+    now = time.monotonic()
+    job = {
+        "state": "running", "error": None, "redirect": redirect_url, "language": language,
+        "attempt": 0, "tokens": 0, "attempt_started": now, "first_token_at": None, "last_token_at": None,
+        "expected": _expected_generation(language), "created": now,
+    }
+    job_id = uuid.uuid4().hex
+    with GENERATION_LOCK:
+        for old_id in [k for k, j in GENERATION_JOBS.items() if now - j["created"] > 3600]:
+            del GENERATION_JOBS[old_id]               # forget jobs older than an hour
+        GENERATION_JOBS[job_id] = job
+    threading.Thread(
+        target=_run_generation_job,
+        args=(job, resume, language, job_position, candidate_folder, cv_json_path, questions_path),
+        daemon=True).start()
+    return job_id
+
+
+@app.route("/api/generation_status/<job_id>")
+def api_generation_status(job_id):
+    """Progress of a question-generation job, polled by static/js/setup.js."""
+    with GENERATION_LOCK:
+        job = GENERATION_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"state": "missing"})
+        if job["state"] == "running":
+            percent, eta = _estimate_generation(job, time.monotonic())
+            body = {"state": "running", "percent": round(percent), "eta": eta}
+        elif job["state"] == "done":
+            body = {"state": "done", "percent": 100, "eta": 0, "redirect": job["redirect"]}
+        else:
+            body = {"state": "error", "error": job["error"]}
+    response = jsonify(body)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 @app.route("/mic_test/<candidate>/<lang>")
 def mic_test_page(candidate, lang):
