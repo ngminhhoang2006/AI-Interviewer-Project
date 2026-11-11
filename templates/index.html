@@ -107,6 +107,11 @@
     </div>
 
     <div id="status" class="loading-state"></div>
+    {# Shown while the questions are being generated: progress bar + estimated time left (see setup.js) #}
+    <div id="genProgress" class="gen-progress" hidden>
+        <progress id="genBar" class="grade-bar" max="100" value="0" aria-labelledby="status"></progress>
+        <p id="genEta" class="loading-state num"></p>
+    </div>
 </div>
 <script src="{{ url_for('static', filename='js/setup.js') }}"></script>
 {% endblock %}
