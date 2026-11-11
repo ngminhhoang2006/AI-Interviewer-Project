@@ -219,11 +219,37 @@ def _ollama_chat(**kwargs):
         return ollama.chat(**kwargs)
 
 
-def _ask_for_questions(system_msg, prompt, language):
+def _chat_streaming(progress, attempt, **kwargs):
+    """Runs one chat request as a stream and returns the full reply text.
+
+    progress(attempt, tokens) is called when the attempt starts (tokens=0) and after every streamed
+    chunk (roughly one token each), so a caller can show a progress bar and a time estimate.
+    A failing callback never breaks generation."""
+    def report(tokens):
+        if progress is None:
+            return
+        try:
+            progress(attempt, tokens)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [warn] progress callback failed: {e}")
+
+    report(0)
+    parts, tokens = [], 0
+    for chunk in _ollama_chat(stream=True, **kwargs):
+        text = chunk["message"]["content"] or ""
+        if text:
+            parts.append(text)
+            tokens += 1
+            report(tokens)
+    return "".join(parts)
+
+
+def _ask_for_questions(system_msg, prompt, language, progress=None):
     best_partial, last_problem = None, "no answer"
 
     for attempt in range(1, QUESTION_MAX_ATTEMPTS + 1):
-        response = _ollama_chat(
+        raw = _chat_streaming(
+            progress, attempt,
             model=QUESTION_MODEL,
             format="json",
             options={"num_ctx": QUESTION_NUM_CTX},
@@ -232,7 +258,6 @@ def _ask_for_questions(system_msg, prompt, language):
                 {"role": "user", "content": prompt},
             ],
         )
-        raw = response["message"]["content"]
 
         try:
             data, truncated = _extract_json(raw)
@@ -278,7 +303,7 @@ def describe_generation_error(exc, language=""):
     return f"Question generation failed ({type(exc).__name__}: {msg[:200]})."
 
 
-def generate_questions(resume, language="English", job_position=None):
+def generate_questions(resume, language="English", job_position=None, progress=None):
 
     job_position = clean_job_position(job_position)
 
@@ -358,7 +383,7 @@ IMPORTANT RULES:
         f"You must communicate in {language}. "
         f"You must respond with valid JSON only."
     )
-    return _ask_for_questions(system_msg, prompt, language)
+    return _ask_for_questions(system_msg, prompt, language, progress)
 
 
 def save_questions(questions, output_path):
