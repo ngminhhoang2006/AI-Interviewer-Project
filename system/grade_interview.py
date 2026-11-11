@@ -88,16 +88,33 @@ Output valid JSON only matching:
 """
 
 
-def grade_answer(model: str, job_title: str, q: dict) -> dict:
+def per_question_system(language: str) -> str:
+    """Grading prompt that also tells the model which language to write its comments in."""
+    return PER_QUESTION_SYSTEM + (
+        f"Language: the interview was conducted in {language}. Write the text values of "
+        f'"strengths", "concerns" and "comment" in {language}. Keep the JSON keys exactly as shown '
+        'and "score" a plain number.\n'
+    )
+
+
+def overall_system(language: str) -> str:
+    return OVERALL_SYSTEM + (
+        f'Language: the interview was conducted in {language}. Write the "summary" in {language}. '
+        'Keep the JSON keys exactly as shown, and keep "recommendation" exactly one of the English values '
+        'listed (the app translates it) and "overall_score" a plain number.\n'
+    )
+
+
+def grade_answer(model: str, job_title: str, q: dict, language: str = "English") -> dict:
     user_prompt = (
         f"Job title being interviewed for: {job_title}\n"
         f"Question topic: {q.get('topic')}\n"
         f"Question difficulty: {q.get('difficulty')}\n"
         f"Question: {q['question']}\n"
         f"Candidate answer: {q['answer']}\n\n"
-        "Grade this answer now."
+        f"Grade this answer now. Write the strengths, concerns and comment in {language}."
     )
-    raw = call_ollama(model, PER_QUESTION_SYSTEM, user_prompt)
+    raw = call_ollama(model, per_question_system(language), user_prompt)
     try:
         parsed = extract_json_block(raw)
     except Exception as e:  # noqa: BLE001
@@ -119,8 +136,10 @@ def grade_interview(data: dict, model: str, job_title: str, job_requirements: st
     raw_candidate = data.get("candidate", "Unknown candidate")
     candidate = raw_candidate.replace("\u00a0", " ").strip()
     answers = data.get("answers", [])
+    # The comments are written in the language the interview was held in (saved with the answers)
+    language = str(data.get("interview_language") or "English").strip() or "English"
 
-    print(f"Grading {len(answers)} answers for {candidate} using model '{model}'...")
+    print(f"Grading {len(answers)} answers for {candidate} using model '{model}' (comments in {language})...")
 
     total = len(answers)
 
@@ -137,7 +156,7 @@ def grade_interview(data: dict, model: str, job_title: str, job_requirements: st
     for idx, q in enumerate(answers, start=1):
         q_num = q.get("question_number", idx)
         print(f"  -> Q{q_num}: {q.get('question', '')[:60]}...")
-        grade = grade_answer(model, job_title, q)
+        grade = grade_answer(model, job_title, q, language)
         results.append({
             "question_number": q_num,
             "topic": q.get("topic"),
@@ -161,9 +180,9 @@ def grade_interview(data: dict, model: str, job_title: str, job_requirements: st
         f"Job title: {job_title}\n"
         f"Job requirements: {job_requirements or 'Not specified'}\n\n"
         "Per-question evaluations:\n" + "\n".join(summary_lines) + "\n\n"
-        "Now produce the final overall hiring judgement."
+        f"Now produce the final overall hiring judgement. Write the summary in {language}."
     )
-    raw_overall = call_ollama(model, OVERALL_SYSTEM, overall_user_prompt)
+    raw_overall = call_ollama(model, overall_system(language), overall_user_prompt)
     try:
         overall = extract_json_block(raw_overall)
     except Exception as e:  # noqa: BLE001
