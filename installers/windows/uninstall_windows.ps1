@@ -22,7 +22,7 @@ $Shortcut   = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$App
 function Say($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Ask($q) { $a = Read-Host "$q [y/N]"; return ($a -match '^[Yy]') }
 
-# ---------------------------------------------------------------- locate install folder
+# Locate install folder
 $InstallDir = $Dir
 
 # 1) recorded by the installer  2) read from the Start Menu shortcut  3) default location

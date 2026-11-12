@@ -44,7 +44,7 @@ function Find-InstallDir {
     return $d
 }
 
-# ------------------------------------------------------------------ window
+# Window
 $form = New-Object System.Windows.Forms.Form
 $form.Text            = if ($IsInstall) { "$AppName Setup" } else { "$AppName - Uninstall" }
 $form.ClientSize      = New-Object System.Drawing.Size(640, 524)
@@ -121,7 +121,7 @@ $controls = @($lblTitle, $lblIntro, $lblDir, $txtDir, $btnBrowse, $lblHint, $chk
 if ($chk2) { $controls += $chk2 }
 $form.Controls.AddRange($controls)
 
-# ------------------------------------------------------------------ log handling
+# Log handling
 $script:proc    = $null
 $script:posOut  = 0
 $script:posErr  = 0
@@ -218,7 +218,7 @@ $timer.Add_Tick({
     if ($done) { $timer.Stop(); Finish }
 })
 
-# ------------------------------------------------------------------ actions
+# Actions
 $btnBrowse.Add_Click({
     $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
     $dlg.Description = if ($IsInstall) { "Choose the folder to install $AppName into" } else { "Select the folder $AppName is installed in" }

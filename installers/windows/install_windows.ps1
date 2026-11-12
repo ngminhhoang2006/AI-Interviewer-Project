@@ -33,7 +33,7 @@ function Winget-Install($id) {
     Refresh-Path
 }
 
-# ---------------------------------------------------------------- choose install folder
+# Choose install folder
 if ([string]::IsNullOrWhiteSpace($Dir)) {
     if (-not $NoPrompt) { $Dir = Read-Host "Install location [$DefaultInstallDir]" }
     if ([string]::IsNullOrWhiteSpace($Dir)) { $Dir = $DefaultInstallDir }
@@ -70,7 +70,7 @@ $VenvPy   = Join-Path $InstallDir '.venv\Scripts\python.exe'
 
 Say "Installing to $InstallDir"
 
-# ---------------------------------------------------------------- dependencies
+# Dependencies
 Say 'Checking dependencies'
 if (-not (Has winget)) {
     throw 'winget was not found. Install "App Installer" from the Microsoft Store (or update Windows), then re-run.'
@@ -86,12 +86,12 @@ if (-not (Has ollama)) {
 }
 foreach ($c in 'git','py') { if (-not (Has $c)) { throw "$c is still not on PATH. Close this window, open a new one, and re-run the installer." } }
 
-# ---------------------------------------------------------------- source code
+# Source code
 Say "Fetching project into $InstallDir"
 if (Test-Path (Join-Path $InstallDir '.git')) {
     git -C $InstallDir pull --ff-only
 } else {
-    git clone $RepoUrl $InstallDir
+    git clone --depth 1 $RepoUrl $InstallDir
 }
 if ($LASTEXITCODE -ne 0) { throw 'git failed.' }
 New-Item -ItemType File -Force -Path (Join-Path $InstallDir $Marker) | Out-Null
@@ -100,17 +100,20 @@ New-Item -ItemType File -Force -Path (Join-Path $InstallDir $Marker) | Out-Null
 New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
 Set-Content -Path $PathFile -Value $InstallDir -Encoding UTF8
 
-# ---------------------------------------------------------------- python venv
+# Python venv
 Say 'Creating virtual environment'
-& py -3.12 -m venv (Join-Path $InstallDir '.venv') 2>$null
-if ($LASTEXITCODE -ne 0) { & py -3 -m venv (Join-Path $InstallDir '.venv') }
-if (-not (Test-Path $VenvPy)) { throw 'Could not create the virtual environment.' }
+if (-not (Test-Path $VenvPy)) {
+    & py -3.12 -m venv (Join-Path $InstallDir '.venv') 2>$null
+    if ($LASTEXITCODE -ne 0) { & py -3 -m venv (Join-Path $InstallDir '.venv') }
+    if (-not (Test-Path $VenvPy)) { throw 'Could not create the virtual environment.' }
+}
+$env:PIP_DISABLE_PIP_VERSION_CHECK = '1'
 $PipOpts = @(); if ($NoPrompt) { $PipOpts = @('--progress-bar','off') }   # progress bars clutter the setup window log
-& $VenvPy -m pip install @PipOpts --upgrade pip
 
 $ReqSrc    = Join-Path $InstallDir 'requirements.txt'
 $ReqClean  = Join-Path $InstallDir '.requirements.clean.txt'
 $ModelFile = Join-Path $InstallDir '.ollama_models.txt'
+$Stamp     = Join-Path $InstallDir '.venv\.requirements.stamp'
 
 if (Test-Path $ReqSrc) {
     # Strip stdlib modules / model notes that pip rejects; use prebuilt webrtcvad wheels
@@ -154,13 +157,22 @@ open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
     $filterPath = Join-Path $env:TEMP 'ai_interviewer_filter.py'
     Set-Content -Path $filterPath -Value $filter -Encoding UTF8
     & $VenvPy $filterPath $ReqSrc $ReqClean $ModelFile
-    & $VenvPy -m pip install @PipOpts -r $ReqClean
 } else {
     Write-Host 'No requirements.txt found; installing a minimal fallback set.'
-    & $VenvPy -m pip install @PipOpts flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad-wheels sounddevice pymupdf sqlalchemy requests
+    Set-Content -Path $ReqClean -Value @('flask','flask-login','flask-mail','flask-sqlalchemy','itsdangerous','markdown','numpy','ollama','sherpa-onnx','noisereduce','webrtcvad-wheels','sounddevice','pymupdf','sqlalchemy','requests')
     Set-Content -Path $ModelFile -Value 'qwen3:8b'
 }
-if ($LASTEXITCODE -ne 0) { throw 'pip install failed. See the messages above.' }
+
+# Skip pip when the package list and Python version match the last successful install
+$stampNow = (Get-FileHash -Algorithm SHA256 -LiteralPath $ReqClean).Hash + ' ' + (& $VenvPy -c 'import sys; print(sys.version_info[:2])')
+if ((Test-Path $Stamp) -and ((Get-Content $Stamp -Raw).Trim() -eq $stampNow)) {
+    Write-Host 'Python packages are already up to date.'
+} else {
+    & $VenvPy -m pip install @PipOpts --upgrade pip
+    & $VenvPy -m pip install @PipOpts -r $ReqClean
+    if ($LASTEXITCODE -ne 0) { throw 'pip install failed. See the messages above.' }
+    Set-Content -Path $Stamp -Value $stampNow
+}
 
 # Pull Ollama model(s) named in requirements.txt
 if ((Has ollama) -and (Test-Path $ModelFile)) {
@@ -168,13 +180,15 @@ if ((Has ollama) -and (Test-Path $ModelFile)) {
     if ($models) {
         Say 'Pulling Ollama model(s)'
         foreach ($m in $models) {
+            & ollama show $m 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { Write-Host "$m is already downloaded."; continue }
             & ollama pull $m
             if ($LASTEXITCODE -ne 0) { Write-Host "Could not pull $m. Start Ollama, then run: ollama pull $m" -ForegroundColor Yellow }
         }
     }
 }
 
-# ---------------------------------------------------------------- speech models
+# Speech models
 Say 'Downloading speech models (about 1.2 GB the first time; already-installed ones are skipped)'
 $ModelScript = Join-Path $InstallDir 'system\download_models.py'
 if (Test-Path -LiteralPath $ModelScript) {
@@ -186,7 +200,7 @@ if (Test-Path -LiteralPath $ModelScript) {
     Write-Host 'NOTE: system\download_models.py was not found in the project, so no speech models were installed.' -ForegroundColor Yellow
 }
 
-# ---------------------------------------------------------------- config / secrets
+# Config / secrets
 Say 'Setting up config'
 if (-not (Test-Path $EnvFile)) {
     $bytes = New-Object byte[] 32
@@ -207,7 +221,7 @@ MAIL_PASSWORD=
     Write-Host "Keeping existing $EnvFile"
 }
 
-# ---------------------------------------------------------------- launcher
+# Launcher
 Say 'Writing launcher'
 $launcherBody = @'
 $InstallDir = '@INSTALL_DIR@'
@@ -269,7 +283,7 @@ $qEnv     = $EnvFile.Replace("'", "''")
 $launcherBody = $launcherBody.Replace('@INSTALL_DIR@', $qInstall).Replace('@ENV_FILE@', $qEnv).Replace('@PORT@', "$Port").Replace('@APP_ID@', $AppId)
 Set-Content -Path $Launcher -Value $launcherBody -Encoding UTF8
 
-# ---------------------------------------------------------------- Start Menu shortcut
+# Start Menu shortcut
 Say 'Creating Start Menu shortcut'
 $shell = New-Object -ComObject WScript.Shell
 $lnk = $shell.CreateShortcut((Join-Path $StartMenu "$AppName.lnk"))
