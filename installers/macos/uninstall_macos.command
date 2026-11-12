@@ -22,7 +22,7 @@ ask() { read -r -p "$1 [y/N] " a; [[ "${a:-N}" =~ ^[Yy]$ ]]; }
 mode_ask() { case "$1" in yes) return 0 ;; no) return 1 ;; *) ask "$2" ;; esac; }
 ASSUME_YES=0; BACKUP_MODE=ask; CONFIG_MODE=ask
 
-# ---------------------------------------------------------------- locate install folder
+# Locate install folder
 INSTALL_DIR=""
 while [ $# -gt 0 ]; do
     case "$1" in
