@@ -37,7 +37,7 @@ You can also set AI_INTERVIEWER_DIR instead of passing --dir.
 EOF
 }
 
-# ---------------------------------------------------------------- choose install folder
+# Choose install folder
 CHOSEN="${AI_INTERVIEWER_DIR:-}"
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -83,7 +83,7 @@ mkdir -p "$INSTALL_DIR"
 
 say "Installing to $INSTALL_DIR"
 
-# ---------------------------------------------------------------- system deps
+# System deps
 say "Checking system dependencies"
 missing=()
 command -v git     >/dev/null || missing+=(git)
@@ -109,7 +109,7 @@ if [ ${#missing[@]} -gt 0 ]; then
                 command -v pkexec >/dev/null || { echo "pkexec not found. Install these packages manually and re-run: ${missing[*]}"; exit 1; }
                 SUDO=(pkexec)
             fi
-            "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y "$@"' _ "${missing[@]}"
+            "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y --no-install-recommends "$@"' _ "${missing[@]}"
         else
             echo "Please install them manually and re-run."; exit 1
         fi
@@ -123,12 +123,12 @@ command -v ollama >/dev/null || {
     echo "      Install from https://ollama.com and pull the model your system/ code uses."
 }
 
-# ---------------------------------------------------------------- source code
+# Source code
 say "Fetching project into $INSTALL_DIR"
 if [ -d "$INSTALL_DIR/.git" ]; then
     git -C "$INSTALL_DIR" pull --ff-only
 else
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
 fi
 touch "$INSTALL_DIR/$MARKER"
 
@@ -136,15 +136,16 @@ touch "$INSTALL_DIR/$MARKER"
 mkdir -p "$CONFIG_DIR" "$BIN_DIR" "$DESKTOP_DIR"
 printf '%s\n' "$INSTALL_DIR" > "$PATH_FILE"
 
-# ---------------------------------------------------------------- python venv
+# Python venv
 say "Creating virtual environment"
-python3 -m venv "$INSTALL_DIR/.venv"
-PIP="$INSTALL_DIR/.venv/bin/pip"
-"$PIP" install --upgrade pip
+VENV_PY="$INSTALL_DIR/.venv/bin/python"
+[ -x "$VENV_PY" ] || python3 -m venv "$INSTALL_DIR/.venv"
+export PIP_DISABLE_PIP_VERSION_CHECK=1
 
 REQ_SRC="$INSTALL_DIR/requirements.txt"
 REQ_CLEAN="$INSTALL_DIR/.requirements.clean.txt"
 MODEL_FILE="$INSTALL_DIR/.ollama_models.txt"
+STAMP="$INSTALL_DIR/.venv/.requirements.stamp"
 
 if [ -f "$REQ_SRC" ]; then
     # The repo's requirements.txt lists standard-library modules and notes like
@@ -184,23 +185,36 @@ for raw in open(src, encoding="utf-8"):
 open(dst, "w").write("\n".join(pkgs) + "\n")
 open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
 PY
-    "$PIP" install -r "$REQ_CLEAN"
 else
     echo "No requirements.txt found; installing a minimal fallback set."
-    "$PIP" install flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy \
-        ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests
+    printf '%s\n' flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests > "$REQ_CLEAN"
     echo "qwen3:8b" > "$MODEL_FILE"
+fi
+
+# Skip pip when the package list and Python version match the last successful install
+STAMP_NOW="$("$VENV_PY" -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest(), sys.version_info[:2])' "$REQ_CLEAN")"
+if [ "$(cat "$STAMP" 2>/dev/null)" = "$STAMP_NOW" ]; then
+    echo "Python packages are already up to date."
+else
+    "$VENV_PY" -m pip install --upgrade pip
+    "$VENV_PY" -m pip install -r "$REQ_CLEAN"
+    echo "$STAMP_NOW" > "$STAMP"
 fi
 
 # Pull the Ollama model(s) named in requirements.txt (e.g. qwen3:8b)
 if command -v ollama >/dev/null && [ -s "$MODEL_FILE" ]; then
     say "Pulling Ollama model(s)"
     while read -r model; do
-        [ -n "$model" ] && { ollama pull "$model" || echo "Could not pull $model. Start Ollama, then run: ollama pull $model"; }
+        [ -n "$model" ] || continue
+        if ollama show "$model" >/dev/null 2>&1; then
+            echo "$model is already downloaded."
+        else
+            ollama pull "$model" || echo "Could not pull $model. Start Ollama, then run: ollama pull $model"
+        fi
     done < "$MODEL_FILE"
 fi
 
-# ---------------------------------------------------------------- speech models
+# Speech models
 say "Downloading speech models (about 1.2 GB the first time; already-installed ones are skipped)"
 MODEL_SCRIPT="$INSTALL_DIR/system/download_models.py"
 if [ -f "$MODEL_SCRIPT" ]; then
@@ -209,7 +223,7 @@ else
     echo "NOTE: system/download_models.py was not found in the project, so no speech models were installed."
 fi
 
-# ---------------------------------------------------------------- config / secrets
+# Config / secrets
 say "Setting up config"
 if [ ! -f "$ENV_FILE" ]; then
     SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
@@ -228,7 +242,7 @@ else
     echo "Keeping existing $ENV_FILE"
 fi
 
-# ---------------------------------------------------------------- launcher
+# Launcher
 say "Writing launcher"
 cat > "$LAUNCHER" <<'EOF'
 #!/usr/bin/env bash
@@ -281,7 +295,7 @@ sed -i \
     "$LAUNCHER"
 chmod +x "$LAUNCHER"
 
-# ---------------------------------------------------------------- desktop entry
+# Desktop entry
 say "Creating app-menu entry"
 ICON="applications-office"
 [ -f "$INSTALL_DIR/static/icon.png" ] && ICON="$INSTALL_DIR/static/icon.png"
