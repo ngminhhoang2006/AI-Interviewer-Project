@@ -1,6 +1,5 @@
-// Grading progress page: polls the server and shows "7 of 10 questions graded" plus a time estimate.
-// The grading itself runs in a background thread (see interview_app.py); when it is done this page
-// opens the report.
+// Grading progress page: polls the server for "7 of 10 questions graded" and a time estimate, and opens the report
+// when grading is done.
 document.addEventListener("DOMContentLoaded", () => {
     const cfg = document.getElementById("gradingConfig");
     if (!cfg) return;

@@ -1,8 +1,6 @@
-/* Home hero ground: an ASCII field on an 8 by 16 cell.
-   Raw characters on the left (a résumé as it arrives), resolved lattice on the right (the scored report).
-   The centre stays clear so the headline never sits on a dense cell. Colours come from the CSS tokens.
-   The field is drawn once and redraws only while the pointer moves over it, so nothing loops on its own.
-   Without script the hero keeps its CSS dot grid. */
+/* Home hero ground: an ASCII field on an 8 by 16 cell. Raw characters on the left (a résumé as it arrives), a resolved
+   lattice on the right (the scored report), the centre kept clear so the headline never sits on a dense cell.
+   Drawn once and redrawn only while the pointer moves over it; without script the hero keeps its CSS dot grid. */
 (function () {
     "use strict";
     var hero = document.querySelector(".hero");

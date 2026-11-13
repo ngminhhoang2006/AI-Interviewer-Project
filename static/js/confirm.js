@@ -1,10 +1,6 @@
-/* Confirmation dialogs for the nav bar (loaded from base.html on every page).
- *
- *  - Logout always asks "Log out?".
- *  - While window.interviewInProgress === true (set by interview.js), every nav bar link
- *    asks "Leave the interview?" because answers are only saved when the interview ends.
- *  - Back / refresh / closing the tab shows the browser's "Leave site?" warning in that case too.
- */
+/* Confirmation dialogs for the nav bar (loaded on every page via base.html): logout always asks, and while
+ * window.interviewInProgress is true (set by interview.js) nav links ask "Leave the interview?", because
+ * answers are only saved when the interview ends. Back, refresh and closing the tab show the browser's own warning. */
 (function () {
     "use strict";
 
