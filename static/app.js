@@ -11,7 +11,6 @@ let currentAudio = null;
 async function speakQuestion(text, language = 'English') {
     if (!text || !text.trim()) return;
 
-    // Stop any playing audio
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -64,9 +63,6 @@ function triggerBrowserTTS(text, language) {
     synth.speak(utterance);
 }
 
-/**
- * Speech-to-Text Recording and Submission to Sherpa-ONNX
- */
 async function toggleRecording() {
     const recordBtn = document.getElementById('recordBtn');
     const statusText = document.getElementById('recordingStatus');
