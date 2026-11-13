@@ -453,7 +453,6 @@ def transcribe_audio_sherpa(samples, sample_rate: int = 16000, language: str = "
 
         result_text = stream.result.text.strip()
 
-        # Whisper hallucination artifacts
         hallucinations = [
             r"\(speaking in foreign language\)",
             r"\(speaking foreign language\)",
@@ -492,7 +491,7 @@ def listen_for_answer(language):
 
 
 _sherpa_tts_engines = {}
-# Why the offline voice was NOT used for a language (shown in the browser console via /api/tts)
+# Why the offline voice was not used for a language (shown in the browser console via /api/tts)
 TTS_LAST_ERROR = {}
 
 _supertonic_engine = None

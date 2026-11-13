@@ -7,7 +7,7 @@ Standard library only, so it runs with any Python 3.8+ on Windows, macOS and Lin
 Models that are already in place are skipped, so it is safe to run repeatedly
 (the installers run it every time).
 
-    python download_models.py                      # core set + ALL extra offline voices (default)
+    python download_models.py                      # core set + all extra offline voices (default)
     python download_models.py --core-only          # only Whisper, Parakeet, English + Vietnamese voices
     python download_models.py --voices spanish french   # core set + just these extra voices
     python download_models.py --whisper medium --force   # switch Whisper size (replaces the old one)

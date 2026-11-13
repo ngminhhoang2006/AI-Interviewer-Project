@@ -26,7 +26,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 def flatten_text(text: str) -> str:
     """
     Strips diacritics, converts Vietnamese đ/Đ, handles non-breaking spaces,
-    and removes ALL non-alphanumeric characters for clean string comparison.
+    and removes all non-alphanumeric characters for clean string comparison.
     (Same normalization used across the interview pipeline scripts, so a
     folder like "Nguyen Minh Hoang" matches input like "nguyễn minh hoàng".)
     """

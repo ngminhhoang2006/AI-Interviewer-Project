@@ -32,7 +32,7 @@ def clean_job_position(job_position) -> str:
 def flatten_text(text: str) -> str:
     """
     Strips diacritics, converts Vietnamese đ/Đ, handles non-breaking spaces,
-    and removes ALL non-alphanumeric characters for clean string comparison.
+    and removes all non-alphanumeric characters for clean string comparison.
     """
     text = text.replace("\u00a0", " ").replace("Đ", "D").replace("đ", "d")
 
@@ -434,7 +434,6 @@ def main():
     )
     questions = generate_questions(resume, language=language, job_position=job_position)
 
-    # Normalize non-breaking spaces in the name.
     raw_name = resume.get("name", "candidate")
     clean_name = raw_name.replace("\u00a0", " ").strip()
 
