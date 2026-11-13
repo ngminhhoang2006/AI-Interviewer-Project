@@ -3,8 +3,7 @@
 {% block title %}{{ t('grade.h1') }}{% endblock %}
 
 {% block content %}
-{# Shown while /report/<candidate> is still being graded. static/js/grading.js polls the status URL and
-   opens the finished report by itself. #}
+{# Shown while the report is being graded; grading.js polls the status URL and opens the report when done. #}
 <div class="card grading-card" id="gradingConfig"
      data-status-url="{{ url_for('api_grading_status', candidate=candidate) }}"
      data-report-url="{{ url_for('report_page', candidate=candidate) }}">
