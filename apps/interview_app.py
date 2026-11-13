@@ -38,11 +38,8 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# Interview languages for the Step 2 dropdown.
-#   value: English name sent to the LLM and speech code; lower-cased into file names and URLs, so one word.
-#   tag: BCP-47 tag for the browser voice, used when Sherpa has no voice for the language.
-# A new language also needs an entry in WHISPER_LANG_CODES in system/chatbot.py.
-# An offline voice is used if system/sherpa_models/tts_<value lower-cased>/ exists (system/download_models.py).
+# value: English name for the LLM, lower-cased into file names and URLs (one word); tag: BCP-47 code for the browser voice.
+# A new language also needs WHISPER_LANG_CODES in system/chatbot.py (and tts_<value>/ in sherpa_models for an offline voice).
 SUPPORTED_LANGUAGES = [
     {"value": "English",    "label": "English",                  "tag": "en-US"},
     {"value": "Vietnamese", "label": "Vietnamese (Tiếng Việt)",  "tag": "vi-VN"},
@@ -183,7 +180,6 @@ def generate_questions():
         with open(cv_json_path, "w", encoding="utf-8") as f:
             json.dump(resume, f, indent=4, ensure_ascii=False)
 
-    # Generation takes a while, so it runs in the background and the setup page follows its progress
     lang_slug = language.lower()
     questions_path = cand_dir / f"{candidate_folder}_questions_{lang_slug}.json"
     job_id = _start_generation_job(
@@ -197,7 +193,7 @@ def generate_questions():
     })
 
 
-# ---- Question generation runs in a background thread so the browser can show a time estimate ------
+# Question generation runs in a background thread so the browser can show a time estimate.
 # One job per click, kept in memory (single-process server) and looked up by a random id.
 GENERATION_JOBS = {}
 GENERATION_LOCK = threading.Lock()
@@ -539,7 +535,7 @@ def extract_report_scores(report):
 
 
 def save_interview_scores(user_id, candidate, language, report):
-    """Stores the grades in interview_results and VERIFIES they really are in the database file.
+    """Stores the grades in interview_results and verifies they really are in the database file.
     1) normal save through SQLAlchemy;
     2) if that raises, or the stored scores don't match the report: a direct SQLite write, then the
        backfill (reads the report files on disk).
@@ -593,11 +589,8 @@ def save_interview_scores(user_id, candidate, language, report):
     return None, "failed"
 
 
-# ---- Grading runs in a background thread so the browser can show progress -------------------------
-# One job per candidate folder, kept in memory (single-process server). A job is a dict:
-#   state: "running" | "done" | "error"     done/total: questions graded so far / all questions
-#   stage: "questions" | "summary"          durations: seconds each graded question took
-#   step_started: monotonic time the current step began      report: the finished report
+# Grading runs in a background thread so the browser can show progress. One in-memory job per candidate
+# folder (single-process server): state, stage, questions done and how long each one took.
 GRADING_JOBS = {}
 GRADING_LOCK = threading.Lock()
 
@@ -698,7 +691,6 @@ def report_page(candidate):
 
     data = json.loads(answers_path.read_text(encoding="utf-8"))
 
-    # Scores are saved only for a logged-in user.
     save_status = "not_logged_in"
     if current_user.is_authenticated:
         result_id, save_status = save_interview_scores(

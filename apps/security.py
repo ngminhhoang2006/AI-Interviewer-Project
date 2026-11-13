@@ -2,7 +2,7 @@
 Web-security hardening for the Flask app (XSS + CSRF defences).
 
 Call `init_security(app, project_root)` once, right after the Flask app is created and
-BEFORE any request is served. It sets up:
+before any request is served. It sets up:
 
   * a real SECRET_KEY (from the SECRET_KEY env var, else a random key kept in database/.secret_key)
   * CSRF protection on every POST/PUT/PATCH/DELETE request (Flask-WTF)

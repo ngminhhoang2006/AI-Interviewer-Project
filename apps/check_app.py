@@ -50,7 +50,7 @@ _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 def validate_name(raw) -> str:
     """Validates a user-supplied candidate name. Raises ValueError with a safe message.
 
-    This is input hygiene, NOT the SQL injection defence: quotes are allowed on purpose
+    This is input hygiene, not the SQL injection defence: quotes are allowed on purpose
     (names like O'Brien are legitimate). Injection is prevented by always passing user
     input to SQLite as bound parameters, never by building SQL strings.
     """
