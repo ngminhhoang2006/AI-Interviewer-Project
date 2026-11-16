@@ -33,6 +33,20 @@ db_dir.mkdir(parents=True, exist_ok=True)
 # SECRET_KEY, secure cookies, CSRF protection and security headers (see apps/security.py)
 init_security(app, PROJECT_ROOT)
 init_i18n(app)
+
+# Static files are cached for a year. The file's modification time in the URL (?v=) makes an edited file load fresh.
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 365 * 24 * 3600
+
+
+@app.url_defaults
+def add_static_version(endpoint, values):
+    if endpoint == 'static' and 'v' not in values:
+        try:
+            values['v'] = int((Path(app.static_folder) / values['filename']).stat().st_mtime)
+        except (KeyError, OSError):
+            pass
+
+
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_dir / 'interview_portal.db'}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -294,15 +308,23 @@ def mic_test():
     language = request.args.get("lang", "English")
     return render_template("mic_test.html", candidate=candidate, language=language)
 
+RESULTS_PER_PAGE = 200
+
+
 @app.route("/results_checker")
 @login_required
 def results_checker():
-    if current_user.is_admin:
-        results = InterviewResult.query.order_by(InterviewResult.created_at.desc()).all()
-    else:
-        results = InterviewResult.query.filter_by(user_id=current_user.id).order_by(InterviewResult.created_at.desc()).all()
+    query = InterviewResult.query
+    if not current_user.is_admin:
+        query = query.filter_by(user_id=current_user.id)
+    # Newest first; id breaks ties so a row never moves between pages
+    ordered = query.order_by(InterviewResult.created_at.desc(), InterviewResult.id.desc())
+    page = request.args.get("page", 1, type=int)
+    pagination = ordered.paginate(page=page, per_page=RESULTS_PER_PAGE, error_out=False)
+    if pagination.pages and page > pagination.pages:
+        return redirect(url_for("results_checker", page=pagination.pages))
 
-    return render_template("checker.html", results=results, is_admin=current_user.is_admin)
+    return render_template("checker.html", results=pagination.items, pagination=pagination, is_admin=current_user.is_admin)
 
 for rule in checker_app.url_map.iter_rules():
     if rule.endpoint not in app.view_functions and rule.endpoint != "static":

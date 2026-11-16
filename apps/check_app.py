@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import functools
 import html
+import os
 import re
 import unicodedata
 from pathlib import Path
@@ -35,6 +37,7 @@ UPLOAD_FOLDER = PROJECT_ROOT / "uploads"
 DB_PATH = PROJECT_ROOT / "database.db"
 
 
+@functools.lru_cache(maxsize=50000)
 def flatten_text(text: str) -> str:
     """Normalizes text matching candidate folder names."""
     text = text.replace("\u00a0", " ").replace("Đ", "D").replace("đ", "d")
@@ -68,14 +71,7 @@ def validate_name(raw) -> str:
 
 def _open_readonly_db() -> sqlite3.Connection:
     """The checker only ever reads, so open the database read-only (least privilege)."""
-    conn = sqlite3.connect(f"{DB_PATH.as_uri()}?mode=ro", uri=True, timeout=10)
-    # Lets SQLite apply the same name normalisation as the rest of the app, inside the query.
-    conn.create_function(
-        "flatten", 1,
-        lambda v: flatten_text(v) if isinstance(v, str) else "",
-        deterministic=True,
-    )
-    return conn
+    return sqlite3.connect(f"{DB_PATH.as_uri()}?mode=ro", uri=True, timeout=10)
 
 
 def find_candidate_folders(name: str) -> list[Path]:
@@ -85,11 +81,12 @@ def find_candidate_folders(name: str) -> list[Path]:
         return []
 
     matches = []
-    for d in UPLOAD_FOLDER.iterdir():
-        if d.is_dir():
-            folder_flat = flatten_text(d.name)
-            if folder_flat and target_flat in folder_flat:
-                matches.append(d)
+    with os.scandir(UPLOAD_FOLDER) as entries:
+        for entry in entries:
+            if entry.is_dir():
+                folder_flat = flatten_text(entry.name)
+                if folder_flat and target_flat in folder_flat:
+                    matches.append(Path(entry.path))
 
     return sorted(matches, key=lambda x: str(x))
 
@@ -103,43 +100,46 @@ def find_report_files(folder: Path) -> list[Path]:
 def index():
     return render_template("checker.html")
 
-def get_candidate_scores(candidate_name: str):
-    """Fetch scores from the SQLite interview_results table (name matched with text flattening).
+def _read_score_rows():
+    """Every stored result as (flattened name, row), oldest first. Read once per search request."""
+    if not DB_PATH.exists():
+        return []
+    conn = _open_readonly_db()
+    try:
+        rows = conn.execute(
+            "SELECT candidate_name, cv_score, interview_score, feedback_reason, created_at "
+            "FROM interview_results ORDER BY id"
+        ).fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error while reading scores: {e}")
+        return []
+    finally:
+        conn.close()
+    flat_rows = [(flatten_text(r[0]) if isinstance(r[0], str) else "", r) for r in rows]
+    return [(flat, r) for flat, r in flat_rows if flat]
 
-    The name is passed as a bound parameter, so it is only ever treated as data.
+
+def get_candidate_scores(candidate_name: str, rows=None):
+    """Scores of the first stored result whose name contains the candidate's name or the reverse.
+
+    Pass `rows` (from _read_score_rows) when looking up several names, so the table is read only once.
     """
     empty = {"cv_score": "N/A", "interview_score": "N/A", "feedback": "", "date": ""}
     target_flat = flatten_text(candidate_name)
-    if not target_flat or not DB_PATH.exists():
+    if not target_flat:
         return empty
-
-    conn = _open_readonly_db()
-    try:
-        row = conn.execute(
-            "SELECT candidate_name, cv_score, interview_score, feedback_reason, created_at "
-            "FROM interview_results "
-            "WHERE flatten(candidate_name) != '' "
-            "  AND (instr(flatten(candidate_name), :target) > 0 "
-            "       OR instr(:target, flatten(candidate_name)) > 0) "
-            "ORDER BY id LIMIT 1",
-            {"target": target_flat},
-        ).fetchone()
-    except sqlite3.Error as e:
-        print(f"Database error while reading scores: {e}")
-        return empty
-    finally:
-        conn.close()
-
-    if row is None:
-        return empty
-
-    # The keys are crossed on purpose: search_candidate swaps them back.
-    return {
-        "cv_score": str(row[2]) if row[2] is not None else "N/A",
-        "interview_score": str(row[1]) if row[1] is not None else "N/A",
-        "feedback": row[3] or "",
-        "date": str(row[4]) if row[4] else "",
-    }
+    if rows is None:
+        rows = _read_score_rows()
+    for flat, row in rows:
+        if target_flat in flat or flat in target_flat:
+            # The keys are crossed on purpose: search_candidate swaps them back.
+            return {
+                "cv_score": str(row[2]) if row[2] is not None else "N/A",
+                "interview_score": str(row[1]) if row[1] is not None else "N/A",
+                "feedback": row[3] or "",
+                "date": str(row[4]) if row[4] else "",
+            }
+    return empty
 
 
 def extract_scores_from_md(report_path: Path):
@@ -177,6 +177,9 @@ def search_candidate():
         return jsonify({"candidates": [], "message": t("e.no_match", query=query)})
 
     results = []
+    upload_rel = UPLOAD_FOLDER.relative_to(PROJECT_ROOT)
+    score_rows = None        # the database is read once, and only if some folder has no report on disk
+    query_scores = None
     for f in folders:
         reports = find_report_files(f)
         
@@ -188,9 +191,12 @@ def search_candidate():
             cv_score, interview_score = extract_scores_from_md(reports[0])
             
         if cv_score == "N/A" or interview_score == "N/A":
-            db_scores = get_candidate_scores(query)
+            if score_rows is None:
+                score_rows = _read_score_rows()
+                query_scores = get_candidate_scores(query, score_rows)
+            db_scores = query_scores
             if db_scores["cv_score"] == "N/A" and db_scores["interview_score"] == "N/A":
-                db_scores = get_candidate_scores(f.name)
+                db_scores = get_candidate_scores(f.name, score_rows)
             
             if cv_score == "N/A":
                 # Swap back: get_candidate_scores returns the two columns crossed.
@@ -200,7 +206,7 @@ def search_candidate():
 
         results.append({
             "folder_name": f.name,
-            "folder_path": str(f.relative_to(PROJECT_ROOT)),
+            "folder_path": str(upload_rel / f.name),
             "reports": [r.name for r in reports],
             "cv_score": cv_score,
             "interview_score": interview_score

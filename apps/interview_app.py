@@ -180,6 +180,7 @@ def generate_questions():
         with open(cv_json_path, "w", encoding="utf-8") as f:
             json.dump(resume, f, indent=4, ensure_ascii=False)
 
+    threading.Thread(target=_warm_voice_models, args=(language,), daemon=True).start()
     lang_slug = language.lower()
     questions_path = cand_dir / f"{candidate_folder}_questions_{lang_slug}.json"
     job_id = _start_generation_job(
@@ -191,6 +192,16 @@ def generate_questions():
         "job_id": job_id,
         "status_url": url_for("api_generation_status", job_id=job_id),
     })
+
+
+def _warm_voice_models(language):
+    """Loads the voice and speech-recognition models while the questions are generated, so the first
+    spoken question and the first recorded answer do not wait for them."""
+    for load in (chatbot.get_sherpa_tts_engine, chatbot.get_sherpa_asr_recognizer):
+        try:
+            load(language)
+        except Exception as e:  # noqa: BLE001 - warming up is optional
+            print(f"[warm-up] {e}")
 
 
 # Question generation runs in a background thread so the browser can show a time estimate.
