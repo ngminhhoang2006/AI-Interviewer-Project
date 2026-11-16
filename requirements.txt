@@ -2,7 +2,9 @@
 # External requirements: ffmpeg, Ollama (https://ollama.com) with the model: ollama pull qwen3:8b
 # Linux system libs: libportaudio2 (sounddevice), build-essential + python3-dev (webrtcvad)
 ollama
+# Pinned: sherpa-onnx 2.x returned no audio for the Piper voices, 1.13.8 works
 sherpa-onnx==1.13.8
+# Optional: only imported when the fallback denoiser is enabled in system/chatbot.py
 noisereduce
 webrtcvad
 sounddevice
