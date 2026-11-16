@@ -1,9 +1,6 @@
 /* Cobalt on paper, one graphite panel per page (the interview question), keycap buttons.
  * Cut corners need corner-shape support and fall back to a plain radius. Cobalt faces load only where
- * installed (CSP font-src 'self'); system stacks follow. */
-@import url("./tokens.css");
-@import url("./base.css");
-
+ * installed (CSP font-src 'self'); system stacks follow. tokens.css and base.css load first (see base.html). */
 /* Reset overrides for this app (base.css sets display-scale heads) */
 h1, h2, h3, h4 { max-width: none; margin: 0 0 var(--space-xs); color: var(--color-ink); line-height: 1.12; }
 h1 { font-size: clamp(1.75rem, 2vw + 1rem, 2.25rem); }
@@ -721,3 +718,6 @@ html:not(.nav-js) .lang-apply { display: inline-flex; }
 .grade-count { margin: 0 0 var(--space-2xs); font-family: var(--font-display); font-size: var(--text-lg); font-weight: 500; }
 .grade-error { margin-top: var(--space-lg); }
 .grade-error p { margin-bottom: var(--space-md); color: var(--color-error); }
+
+/* Results pagination */
+.pager { display: flex; align-items: center; justify-content: center; gap: var(--space-md); margin-top: var(--space-lg); }
