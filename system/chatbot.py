@@ -1,8 +1,9 @@
+import importlib.util
 import json
 import ollama
 from pathlib import Path
 from datetime import datetime
-from collections import deque
+from collections import OrderedDict, deque
 import re
 import unicodedata
 import threading
@@ -30,11 +31,8 @@ except ImportError:
     VAD_AVAILABLE = False
 
 # Optional fallback denoiser: weak on non-stationary noise (voices, traffic), fine for steady hum.
-try:
-    import noisereduce as nr
-    NOISEREDUCE_AVAILABLE = True
-except ImportError:
-    NOISEREDUCE_AVAILABLE = False
+# Only checked here: importing noisereduce pulls in scipy and takes about a second, so denoise_audio imports it when needed.
+NOISEREDUCE_AVAILABLE = importlib.util.find_spec("noisereduce") is not None
 
 VOICE_AVAILABLE = _VOICE_CORE_AVAILABLE and SHERPA_ONNX_AVAILABLE
 
@@ -305,6 +303,7 @@ def denoise_audio(samples: np.ndarray, sample_rate: int):
 
     if NOISEREDUCE_AVAILABLE and FALL_BACK_TO_NOISEREDUCE:
         try:
+            import noisereduce as nr
             reduced = nr.reduce_noise(y=samples.astype(np.float32), sr=sample_rate)
             reduced = _normalize_peak(reduced.astype(np.float32))
             return reduced, sample_rate
@@ -616,7 +615,31 @@ def _generate_audio(tts, lang_key, text):
     return tts.generate(text, sid=0, speed=1.0)
 
 
+# The last few spoken texts, so replaying a question does not synthesize it again (about 10 MB at most).
+TTS_AUDIO_CACHE_SIZE = 32
+_tts_audio_cache = OrderedDict()    # (language, text) -> WAV bytes, newest last
+_tts_audio_lock = threading.Lock()
+
+
 def synthesize_sherpa_wav(text: str, language: str = "English") -> bytes:
+    """Same as _synthesize_sherpa_wav, but remembers recent results. Failures are not remembered."""
+    key = (language.lower().strip(), text)
+    with _tts_audio_lock:
+        wav = _tts_audio_cache.get(key)
+        if wav is not None:
+            _tts_audio_cache.move_to_end(key)
+            return wav
+
+    wav = _synthesize_sherpa_wav(text, language)
+    if wav:
+        with _tts_audio_lock:
+            _tts_audio_cache[key] = wav
+            while len(_tts_audio_cache) > TTS_AUDIO_CACHE_SIZE:
+                _tts_audio_cache.popitem(last=False)
+    return wav
+
+
+def _synthesize_sherpa_wav(text: str, language: str = "English") -> bytes:
     """Synthesizes text into 16-bit PCM WAV bytes using the requested language model."""
     tts = get_sherpa_tts_engine(language)
     if tts is None:
