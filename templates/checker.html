@@ -18,36 +18,44 @@
     <h2>{{ t('chk.all') if is_admin else t('chk.yours') }}</h2>
 
     {% if results %}
+    {% set l_user, l_name, l_lang, l_cv, l_int, l_date = t('chk.th_user'), t('chk.th_name'), t('chk.th_lang'), t('chk.th_cv'), t('chk.th_int'), t('chk.th_date') %}
     <div class="table-scroll">
     <table class="results-table">
         <thead>
             <tr>
                 {% if is_admin %}
-                <th scope="col">{{ t('chk.th_user') }}</th>
+                <th scope="col">{{ l_user }}</th>
                 {% endif %}
-                <th scope="col">{{ t('chk.th_name') }}</th>
-                <th scope="col">{{ t('chk.th_lang') }}</th>
-                <th scope="col" class="num">{{ t('chk.th_cv') }}</th>
-                <th scope="col" class="num">{{ t('chk.th_int') }}</th>
-                <th scope="col">{{ t('chk.th_date') }}</th>
+                <th scope="col">{{ l_name }}</th>
+                <th scope="col">{{ l_lang }}</th>
+                <th scope="col" class="num">{{ l_cv }}</th>
+                <th scope="col" class="num">{{ l_int }}</th>
+                <th scope="col">{{ l_date }}</th>
             </tr>
         </thead>
         <tbody>
             {% for r in results %}
             <tr>
                 {% if is_admin %}
-                <td data-label="{{ t('chk.th_user') }}">{{ r.user_id }}</td>
+                <td data-label="{{ l_user }}">{{ r.user_id }}</td>
                 {% endif %}
-                <td data-label="{{ t('chk.th_name') }}"><strong>{{ r.candidate_name }}</strong></td>
-                <td data-label="{{ t('chk.th_lang') }}">{{ r.language }}</td>
-                <td data-label="{{ t('chk.th_cv') }}" class="num{{ ' na' if r.cv_score is none }}">{{ r.cv_score if r.cv_score is not none else t('rep.na') }}</td>
-                <td data-label="{{ t('chk.th_int') }}" class="num{{ ' na' if r.interview_score is none }}">{{ r.interview_score if r.interview_score is not none else t('rep.na') }}</td>
-                <td data-label="{{ t('chk.th_date') }}">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td data-label="{{ l_name }}"><strong>{{ r.candidate_name }}</strong></td>
+                <td data-label="{{ l_lang }}">{{ r.language }}</td>
+                <td data-label="{{ l_cv }}" class="num{{ ' na' if r.cv_score is none }}">{{ r.cv_score if r.cv_score is not none else t('rep.na') }}</td>
+                <td data-label="{{ l_int }}" class="num{{ ' na' if r.interview_score is none }}">{{ r.interview_score if r.interview_score is not none else t('rep.na') }}</td>
+                <td data-label="{{ l_date }}">{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     </div>
+    {% if pagination.pages > 1 %}
+    <nav class="pager" aria-label="{{ t('chk.page_info', page=pagination.page, pages=pagination.pages) }}">
+        {% if pagination.has_prev %}<a class="btn btn-quiet btn-sm" href="{{ url_for('results_checker', page=pagination.prev_num) }}">{{ t('chk.prev') }}</a>{% endif %}
+        <span class="num">{{ t('chk.page_info', page=pagination.page, pages=pagination.pages) }}</span>
+        {% if pagination.has_next %}<a class="btn btn-quiet btn-sm" href="{{ url_for('results_checker', page=pagination.next_num) }}">{{ t('chk.next') }}</a>{% endif %}
+    </nav>
+    {% endif %}
     {% else %}
     <p class="empty-msg">{{ th('chk.empty') }}</p>
     {% endif %}
