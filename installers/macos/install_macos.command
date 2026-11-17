@@ -121,7 +121,7 @@ say "Fetching project into $INSTALL_DIR"
 if [ -d "$INSTALL_DIR/.git" ]; then
     git -C "$INSTALL_DIR" pull --ff-only
 else
-    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+    git clone "$REPO_URL" "$INSTALL_DIR"
 fi
 touch "$INSTALL_DIR/$MARKER"
 
@@ -133,7 +133,6 @@ printf '%s\n' "$INSTALL_DIR" > "$PATH_FILE"
 say "Creating virtual environment"
 VENV_PY="$INSTALL_DIR/.venv/bin/python"
 [ -x "$VENV_PY" ] || "$PY" -m venv "$INSTALL_DIR/.venv"
-export PIP_DISABLE_PIP_VERSION_CHECK=1
 
 REQ_SRC="$INSTALL_DIR/requirements.txt"
 REQ_CLEAN="$INSTALL_DIR/.requirements.clean.txt"
@@ -179,7 +178,7 @@ open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
 PY
 else
     echo "No requirements.txt found; installing a minimal fallback set."
-    printf '%s\n' flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests > "$REQ_CLEAN"
+    printf '%s\n' flask flask-login flask-mail flask-sqlalchemy flask-wtf itsdangerous markdown nh3 numpy ollama sherpa-onnx==1.13.8 noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests > "$REQ_CLEAN"
     echo "qwen3:8b" > "$MODEL_FILE"
 fi
 
@@ -198,7 +197,7 @@ if [ -s "$MODEL_FILE" ] && { command -v ollama >/dev/null || [ -d "/Applications
     say "Pulling Ollama model(s)"
     OLLAMA_BIN="$(command -v ollama || echo /Applications/Ollama.app/Contents/Resources/ollama)"
     open -a Ollama 2>/dev/null || true
-    for _ in $(seq 1 30); do     # wait until the Ollama server answers (up to 30 s)
+    for _ in $(seq 1 20); do     # wait until the Ollama server answers (up to 20 s)
         "$OLLAMA_BIN" list >/dev/null 2>&1 && break
         sleep 1
     done
