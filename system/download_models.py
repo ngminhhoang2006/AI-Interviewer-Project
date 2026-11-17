@@ -190,7 +190,7 @@ def download(url, dest, name, attempts=4):
 def safe_extract(tar, dest):
     """Extract a tar archive, refusing members that would escape `dest`."""
     dest = dest.resolve()
-    for m in tar.getmembers():
+    for m in tar:    # one pass; tar.getmembers() would decompress the whole archive an extra time first
         if m.name.split("/", 1)[-1].startswith("test_wavs") or "/test_wavs" in m.name:
             continue   # sample audio we don't need
         target = (dest / m.name).resolve()
