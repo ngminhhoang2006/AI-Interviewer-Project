@@ -109,7 +109,7 @@ if [ ${#missing[@]} -gt 0 ]; then
                 command -v pkexec >/dev/null || { echo "pkexec not found. Install these packages manually and re-run: ${missing[*]}"; exit 1; }
                 SUDO=(pkexec)
             fi
-            "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y --no-install-recommends "$@"' _ "${missing[@]}"
+            "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y "$@"' _ "${missing[@]}"
         else
             echo "Please install them manually and re-run."; exit 1
         fi
@@ -128,7 +128,7 @@ say "Fetching project into $INSTALL_DIR"
 if [ -d "$INSTALL_DIR/.git" ]; then
     git -C "$INSTALL_DIR" pull --ff-only
 else
-    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+    git clone "$REPO_URL" "$INSTALL_DIR"
 fi
 touch "$INSTALL_DIR/$MARKER"
 
@@ -140,7 +140,6 @@ printf '%s\n' "$INSTALL_DIR" > "$PATH_FILE"
 say "Creating virtual environment"
 VENV_PY="$INSTALL_DIR/.venv/bin/python"
 [ -x "$VENV_PY" ] || python3 -m venv "$INSTALL_DIR/.venv"
-export PIP_DISABLE_PIP_VERSION_CHECK=1
 
 REQ_SRC="$INSTALL_DIR/requirements.txt"
 REQ_CLEAN="$INSTALL_DIR/.requirements.clean.txt"
@@ -187,7 +186,7 @@ open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
 PY
 else
     echo "No requirements.txt found; installing a minimal fallback set."
-    printf '%s\n' flask flask-login flask-mail flask-sqlalchemy itsdangerous markdown numpy ollama sherpa-onnx noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests > "$REQ_CLEAN"
+    printf '%s\n' flask flask-login flask-mail flask-sqlalchemy flask-wtf itsdangerous markdown nh3 numpy ollama sherpa-onnx==1.13.8 noisereduce webrtcvad sounddevice pymupdf sqlalchemy requests > "$REQ_CLEAN"
     echo "qwen3:8b" > "$MODEL_FILE"
 fi
 
