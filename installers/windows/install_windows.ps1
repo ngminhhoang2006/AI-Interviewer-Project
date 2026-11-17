@@ -91,7 +91,7 @@ Say "Fetching project into $InstallDir"
 if (Test-Path (Join-Path $InstallDir '.git')) {
     git -C $InstallDir pull --ff-only
 } else {
-    git clone --depth 1 $RepoUrl $InstallDir
+    git clone $RepoUrl $InstallDir
 }
 if ($LASTEXITCODE -ne 0) { throw 'git failed.' }
 New-Item -ItemType File -Force -Path (Join-Path $InstallDir $Marker) | Out-Null
@@ -107,7 +107,6 @@ if (-not (Test-Path $VenvPy)) {
     if ($LASTEXITCODE -ne 0) { & py -3 -m venv (Join-Path $InstallDir '.venv') }
     if (-not (Test-Path $VenvPy)) { throw 'Could not create the virtual environment.' }
 }
-$env:PIP_DISABLE_PIP_VERSION_CHECK = '1'
 $PipOpts = @(); if ($NoPrompt) { $PipOpts = @('--progress-bar','off') }   # progress bars clutter the setup window log
 
 $ReqSrc    = Join-Path $InstallDir 'requirements.txt'
@@ -159,7 +158,7 @@ open(model_file, "w").write("\n".join(models) + ("\n" if models else ""))
     & $VenvPy $filterPath $ReqSrc $ReqClean $ModelFile
 } else {
     Write-Host 'No requirements.txt found; installing a minimal fallback set.'
-    Set-Content -Path $ReqClean -Value @('flask','flask-login','flask-mail','flask-sqlalchemy','itsdangerous','markdown','numpy','ollama','sherpa-onnx','noisereduce','webrtcvad-wheels','sounddevice','pymupdf','sqlalchemy','requests')
+    Set-Content -Path $ReqClean -Value @('flask','flask-login','flask-mail','flask-sqlalchemy','flask-wtf','itsdangerous','markdown','nh3','numpy','ollama','sherpa-onnx==1.13.8','noisereduce','webrtcvad-wheels','sounddevice','pymupdf','sqlalchemy','requests')
     Set-Content -Path $ModelFile -Value 'qwen3:8b'
 }
 
