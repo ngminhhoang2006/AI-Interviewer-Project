@@ -544,7 +544,7 @@ def _load_supertonic():
     if not (d / "vocoder.int8.onnx").exists():
         return None
     if not hasattr(sherpa_onnx, "OfflineTtsSupertonicModelConfig"):
-        print("[TTS] Installed sherpa-onnx is too old for Supertonic. Run: pip install -U sherpa-onnx")
+        print("[TTS] Installed sherpa-onnx is too old for Supertonic. Run: pip install sherpa-onnx==1.13.8")
         return None
     try:
         cfg = sherpa_onnx.OfflineTtsConfig(
@@ -691,7 +691,7 @@ def ask_interview_mode():
     print("  2. Voice (Sherpa-ONNX STT/TTS local offline mode)")
 
     if not VOICE_AVAILABLE:
-        print("  (Voice mode unavailable. Install dependencies with: pip install sherpa-onnx sounddevice numpy)")
+        print("  (Voice mode unavailable. Install dependencies with: pip install sherpa-onnx==1.13.8 sounddevice numpy)")
         return False
 
     choice = input("Choose mode [1/2]: ").strip()
